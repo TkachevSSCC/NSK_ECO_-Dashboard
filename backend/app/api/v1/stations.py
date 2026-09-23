@@ -20,6 +20,7 @@ from app.services.station_service import StationService
 from app.state.runtime import runtime_state
 from app.core.water import land_points_from
 from app.core.redis_client import get_redis, POLLUTION_OVERRIDE_KEY
+from app.tasks.update_stations import reset_movement_state
 
 
 matplotlib.use('agg')
@@ -76,6 +77,8 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
         await session.execute(
             text("TRUNCATE stations_behaviors, stations RESTART IDENTITY CASCADE")
         )
+        # сбрасываем кеш маршрутов, чтобы новые станции строили свои траектории
+        reset_movement_state()
         for idx, tpl in enumerate(zip(points, pm), start=1):
             session.add(
                 Stations(
@@ -92,9 +95,10 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
             session.add(
                 StationBehavior(
                     station_id=idx,
-                    radius=0.0015,
-                    speed=2.5,
-                    progress=0.0,
+                    # у каждой станции свои скорость, радиус орбиты и фаза
+                    radius=round(float(rng.uniform(0.0006, 0.0035)), 6),
+                    speed=round(float(rng.uniform(0.8, 4.0)), 2),
+                    progress=round(float(rng.uniform(0.0, 11.99)), 2),
                 )
             )
         await session.commit()

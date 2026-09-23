@@ -57,9 +57,10 @@ async def seed():
             session.add(
                 StationBehavior(
                     station_id=idx,
-                    radius=0.0015,
-                    speed=2.5,
-                    progress=0.0,
+                    # у каждой станции свои скорость, радиус орбиты и фаза
+                    radius=round(float(rng.uniform(0.0006, 0.0035)), 6),
+                    speed=round(float(rng.uniform(0.8, 4.0)), 2),
+                    progress=round(float(rng.uniform(0.0, 11.99)), 2),
                 )
             )
         await session.commit()

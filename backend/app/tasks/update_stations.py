@@ -17,6 +17,12 @@ routes = {}
 progress = {}
 speeds = {}
 
+def reset_movement_state():
+    """Полный сброс кеша маршрутов (после пересоздания станций)."""
+    routes.clear()
+    progress.clear()
+    speeds.clear()
+
 @celery.task(name="app.tasks.update_stations.update_stations")
 def update_stations():
     loop.run_until_complete(update_stations_async())
@@ -31,11 +37,27 @@ async def update_stations_async():
             def make_route(st, bh):
                 base_lat = st.latitude
                 base_lon = st.longitude
-                return [
-                    (base_lat + bh.radius * math.cos(angle),
-                     base_lon + bh.radius * math.sin(angle))
-                    for angle in [i * (2 * math.pi / 12) for i in range(12)]
+                # у каждой станции своя стартовая фаза, «неровная» орбита
+                # (амплитуда радиуса меняется по 3 «лепесткам») и направление
+                angle_step = 2 * math.pi / 12
+                phase = (st.id * 1.7) % (2 * math.pi)
+                points = [
+                    (
+                        base_lat
+                        + bh.radius
+                        * (1 + 0.3 * math.sin(3 * (i * angle_step + phase)))
+                        * math.cos(i * angle_step + phase),
+                        base_lon
+                        + bh.radius
+                        * (1 + 0.3 * math.sin(3 * (i * angle_step + phase)))
+                        * math.sin(i * angle_step + phase),
+                    )
+                    for i in range(12)
                 ]
+                # чётные станции едут по часовой, нечётные — против
+                if st.id % 2 == 0:
+                    points.reverse()
+                return points
 
             # Удаляем маршруты станций, которых больше нет в БД (например, после ресида)
             db_ids = {st.id for st, bh in stations}

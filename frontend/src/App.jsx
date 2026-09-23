@@ -14,6 +14,13 @@ export default function App() {
   const [movingCount, setMovingCount] = useState(100);
   const [countMsg, setCountMsg] = useState("");
 
+  // точечное загрязнение станции
+  const [pollId, setPollId] = useState(1);
+  const [pollPM25, setPollPM25] = useState("40");
+  const [pollPM10, setPollPM10] = useState("70");
+  const [pollTicks, setPollTicks] = useState(10);
+  const [pollMsg, setPollMsg] = useState("");
+
   const [zones, setZones] = useState([]);
   const [showZones, setShowZones] = useState(false);
 
@@ -129,6 +136,38 @@ export default function App() {
   };
   const handlePollutionsMin = async () => {
     await fetch(`${BASE}/stations/clear_fake_pollutions`, { method: "POST" });
+  };
+
+  const handleAddPollution = async () => {
+    const id = parseInt(pollId, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      setPollMsg("Укажите корректный № станции");
+      return;
+    }
+    const p25 = parseFloat(pollPM25);
+    const p10 = parseFloat(pollPM10);
+    if (Number.isNaN(p25) || Number.isNaN(p10)) {
+      setPollMsg("Укажите числовые значения PM2.5 и PM10");
+      return;
+    }
+    setPollMsg("Добавляю…");
+    try {
+      const res = await fetch(
+        `${BASE}/stations/${id}/pollute?pm25=${encodeURIComponent(p25)}&pm10=${encodeURIComponent(p10)}&ticks=${encodeURIComponent(pollTicks || 10)}`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setPollMsg(data.message || "Ошибка добавления загрязнения");
+        return;
+      }
+      setPollMsg(
+        `Станция ${data.station_id}: PM2.5=${data.PM_2_5}, PM10=${data.PM_10} — ${data.ticks} тиков`
+      );
+    } catch (err) {
+      console.error("Ошибка добавления загрязнения:", err);
+      setPollMsg("Не удалось добавить загрязнение");
+    }
   };
 
   const handleSetStationCount = async () => {
@@ -314,6 +353,53 @@ export default function App() {
               <button onClick={handlePollutionsAdd}>Добавить загрязнения</button>
               <button onClick={handlePollutionsMin}>Убрать загрязнения</button>
             </div>
+
+            <h3 className="table-title">Загрязнение станции</h3>
+            <div className="row">
+              <span className="mode-label">Станция №</span>
+              <input
+                type="number"
+                className="num-input"
+                min="1"
+                value={pollId}
+                onChange={(e) => setPollId(e.target.value)}
+              />
+            </div>
+            <div className="row">
+              <span className="mode-label">PM2.5</span>
+              <input
+                type="number"
+                className="num-input"
+                min="0"
+                max="500"
+                step="any"
+                value={pollPM25}
+                onChange={(e) => setPollPM25(e.target.value)}
+              />
+              <span className="mode-label">PM10</span>
+              <input
+                type="number"
+                className="num-input"
+                min="0"
+                max="500"
+                step="any"
+                value={pollPM10}
+                onChange={(e) => setPollPM10(e.target.value)}
+              />
+            </div>
+            <div className="row">
+              <span className="mode-label">Тиков</span>
+              <input
+                type="number"
+                className="num-input"
+                min="1"
+                max="200"
+                value={pollTicks}
+                onChange={(e) => setPollTicks(e.target.value)}
+              />
+              <button onClick={handleAddPollution}>Добавить</button>
+            </div>
+            {pollMsg && <div className="count-msg">{pollMsg}</div>}
           </section>
 
           <section className="card">

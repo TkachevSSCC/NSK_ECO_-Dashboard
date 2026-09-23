@@ -19,6 +19,7 @@ from app.schemas.station import PlotRequest, Station
 from app.services.station_service import StationService
 from app.state.runtime import runtime_state
 from app.core.water import land_points_from
+from app.core.redis_client import get_redis, POLLUTION_OVERRIDE_KEY
 
 
 matplotlib.use('agg')
@@ -106,14 +107,69 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
 async def get_stations() -> list[Station]:
     return await StationService.find_all()
 
+@router.post("/{station_id}/pollute")
+async def pollute_station(
+    station_id: int,
+    pm25: float,
+    pm10: float,
+    ticks: int = 10,
+):
+    """Добавляет указанный уровень загрязнения (PM2.5 и PM10) конкретной станции.
+
+    Значения сразу пишутся в БД, а затем держатся на заданном уровне ticks
+    тиков (тик = цикл движения, 3 с) в Redis-оверрайде: пока оверрайд активен,
+    таск движения не «дрейфует» эти значения, после — загрязнение затухает
+    как обычно (ступает в обычный случайный процесс).
+    """
+    if not (0 <= pm25 <= 500 and 0 <= pm10 <= 500):
+        return JSONResponse(
+            status_code=422,
+            content={"status": "error", "message": "PM должен быть в диапазоне 0..500"},
+        )
+    st = await StationService.find_by_id(station_id)
+    if st is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": f"Станция {station_id} не найдена"},
+        )
+
+    ticks = max(1, min(int(ticks), 200))
+
+    import json as _json
+
+    async with async_session_maker() as session:
+        cur = await session.get(Stations, station_id)
+        if cur is None:
+            return JSONResponse(
+                status_code=404,
+                content={"status": "error", "message": f"Станция {station_id} не найдена"},
+            )
+        cur.PM_2_5 = round(pm25, 2)
+        cur.PM_10 = round(pm10, 2)
+        cur.overTLV = cur.PM_2_5 > 25 or cur.PM_10 > 50
+        await session.commit()
+
+    get_redis().hset(
+        POLLUTION_OVERRIDE_KEY,
+        str(station_id),
+        _json.dumps({"pm25": round(pm25, 2), "pm10": round(pm10, 2), "ticks": ticks}),
+    )
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "station_id": station_id,
+            "PM_2_5": round(pm25, 2),
+            "PM_10": round(pm10, 2),
+            "overTLV": round(pm25, 2) > 25 or round(pm10, 2) > 50,
+            "ticks": ticks,
+        }
+    )
+
+
 @router.get("/{station_id}/")
 async def get_station(station_id: int) -> Station:
     return await StationService.find_by_id(station_id)
-
-@router.post("/{station_id}/")
-async def update_station(station_id: int, station: Station) -> Station:
-    #stations[station_id] = station
-    return station
 
 
 @router.get("/plot/cluster")

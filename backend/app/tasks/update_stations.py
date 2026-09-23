@@ -1,8 +1,10 @@
 import asyncio
 import random
 import math
+import json
 from app.core.celery_app import celery
 from app.core.water import snap_to_land
+from app.core.redis_client import get_redis, POLLUTION_OVERRIDE_KEY
 from app.db.database import async_session_maker
 from app.db.models.station import Stations
 from app.db.models.station_behavior import StationBehavior
@@ -82,17 +84,42 @@ async def update_stations_async():
             result_all = await session.execute(select(Stations))
             stations_all = result_all.scalars().all()
             print(len(stations_all))
-            for st in stations_all:
-                # обновляем показатели PM
-                for field in ["PM_2_5", "PM_10"]:
-                    old = getattr(st, field)
-                    if old == 0.1:
-                        old = random.uniform(0.1, 10)
-                    new = round(old * (1 + random.uniform(-0.05, 0.05)), 2)
-                    setattr(st, field, new)
 
-                    # пересчёт TLV
-                    st.overTLV = st.PM_2_5 > 25 or st.PM_10 > 50
+            # Оверрайды загрязнений (станция удерживает заданные PM заданное
+            # число тиков, пока они активны — случайный дрейф их не трогает)
+            rc = get_redis()
+            override_raw = rc.hgetall(POLLUTION_OVERRIDE_KEY) or {}
+            overrides = {int(k): json.loads(v) for k, v in override_raw.items()}
+            writeback = {}
+
+            for st in stations_all:
+                ov = overrides.get(st.id)
+                if ov and ov["ticks"] > 0:
+                    st.PM_2_5 = float(ov["pm25"])
+                    st.PM_10 = float(ov["pm10"])
+                    ov["ticks"] -= 1
+                    writeback[st.id] = ov
+                else:
+                    # обычный случайный дрейф показателей
+                    for field in ["PM_2_5", "PM_10"]:
+                        old = getattr(st, field)
+                        if old == 0.1:
+                            old = random.uniform(0.1, 10)
+                        new = round(old * (1 + random.uniform(-0.05, 0.05)), 2)
+                        setattr(st, field, new)
+
+                # пересчёт TLV
+                st.overTLV = st.PM_2_5 > 25 or st.PM_10 > 50
+
+            # синхронизируем оставшиеся тики оверрайдов и убираем отработавшие
+            exhausted = set(overrides) - set(writeback)
+            if writeback or exhausted:
+                pipe = rc.pipeline()
+                for sid, ov in writeback.items():
+                    pipe.hset(POLLUTION_OVERRIDE_KEY, str(sid), json.dumps(ov))
+                for sid in exhausted:
+                    pipe.hdel(POLLUTION_OVERRIDE_KEY, str(sid))
+                pipe.execute()
 
             await session.commit()
             print(f"✅ Updated {len(stations)} stations ({len(routes)} moving in circular paths)")

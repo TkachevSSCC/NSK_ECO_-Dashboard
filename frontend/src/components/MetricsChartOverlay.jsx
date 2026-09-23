@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid
+  CartesianGrid,
 } from "recharts";
 
 export default function MetricsChartOverlay({ visible }) {
@@ -18,51 +19,72 @@ export default function MetricsChartOverlay({ visible }) {
 
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-
-      setData(prev => [
+      setData((prev) => [
         ...prev.slice(-100), // ~2 минуты (40 * 3 сек)
         {
           time: new Date(msg.timestamp).toLocaleTimeString(),
-          value: msg.messages_per_second
-        }
+          value: msg.messages_per_second,
+        },
       ]);
     };
 
     return () => ws.close();
   }, [visible]);
 
-  if (!visible) return null;
-
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 16,
-        right: 16,
-        width: 420,
-        height: 260,
-        background: "rgba(0,0,0,0.7)",
-        borderRadius: 12,
-        padding: 12,
-        zIndex: 1000
-      }}
-    >
-      <div style={{ color: "#fff", marginBottom: 8 }}>
-        Сообщений / сек
-      </div>
-
-      <LineChart width={396} height={200} data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis />
-        <Tooltip />
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke="#ff4d4f"
-          dot={false}
-        />
-      </LineChart>
+    <div>
+      {visible && data.length > 0 ? (
+        <>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--dim)",
+              margin: "0 0 6px 4px",
+            }}
+          >
+            Сообщений / сек
+          </div>
+          <div className="chart-box">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis
+                  dataKey="time"
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: 8,
+                    color: "#e2e8f0",
+                  }}
+                  labelStyle={{ color: "#94a3b8" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#38bdf8"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      ) : (
+        <p className="dim-note">
+          Метрики появятся при включении таймзон или кластеров на карте.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,53 +1,346 @@
-.leaflet-container {
-  height: 100vh;
-  width: 100vw;
+/* ===== Шапка ===== */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
 }
 
-.cluster-icon {
-  background-color: #333;
-  height: 2em;
-  width: 2em;
-  color: #fff;
+header .logo {
+  font-size: 20px;
+  line-height: 1;
+}
+
+header h1 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+#status {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse 1.6s infinite;
+}
+
+/* ===== Дашборд ===== */
+main.dash {
+  display: grid;
+  grid-template-columns: minmax(420px, 5fr) minmax(380px, 4fr);
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+
+.side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.card h2 {
+  font-size: 13px;
+  margin: 0 0 10px;
+  color: var(--acc);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+/* ===== Карта ===== */
+#map {
+  height: 62vh;
+  min-height: 460px;
+  background: #0b1220;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+#map .leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* ===== Кнопки / селекты ===== */
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.mode-row {
+  margin-top: 0;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.mode-label {
+  font-size: 13px;
+  color: var(--dim);
+  align-self: center;
+}
+
+button,
+select {
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+button:hover {
+  border-color: var(--acc);
+}
+
+button.active {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #0b1220;
+  font-weight: 600;
+}
+
+select {
+  padding: 7px 10px;
+}
+
+.num-input {
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 90px;
+}
+
+.num-input:focus {
+  outline: none;
+  border-color: var(--acc);
+}
+
+.count-msg {
+  font-size: 12px;
+  color: var(--acc);
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
+
+/* ===== Таблица ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  color: var(--dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+
+td {
+  color: var(--dim);
+}
+
+td:first-child {
+  color: var(--text);
+}
+
+/* ===== Легенда ===== */
+.legend {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 10px;
+  line-height: 1.7;
+}
+
+.key {
+  margin-right: 16px;
+  white-space: nowrap;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* ===== График метрик ===== */
+.chart-box {
+  width: 100%;
+  height: 240px;
+  background: #0b1220;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.dim-note {
+  color: var(--dim);
+  font-size: 13px;
+  background: #0b1220;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+  border: 1px dashed var(--line);
+}
+
+/* ===== Модалка ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  font-size: 1.2rem;
-  box-shadow: 0 0 0px 5px #fff;
+  z-index: 2000;
 }
 
-.zone-buttons-container {
+.modal-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 92%;
+  max-height: 92%;
+  overflow: auto;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.modal-close {
   position: absolute;
-  top: 10px;       /* расстояние от верха */
-  left: 50px;      /* расстояние от левого края */
-  display: flex;
-  flex-direction: column; /* вертикально */
-  gap: 10px;       /* отступ между кнопками */
-  z-index: 2000;   /* чтобы были поверх карты */
-}
-
-.zone-button { 
-  background-color: rgba(70, 130, 180, 0.9); /* steelblue */
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  color: var(--dim);
+  padding: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: bold;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-.zone-button:hover {
-  background-color: steelblue;
-  transform: scale(1.05);
+.modal-close:hover {
+  color: var(--text);
+  border-color: var(--acc);
 }
 
-.zone-button.active {
-  background-color: rgba(255, 99, 71, 0.9); /* tomato */
+.modal-card img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: 40px;
+  border-radius: 6px;
 }
 
-.zone-button.active:hover {
-  background-color: tomato;
+/* ===== Тёмная тема Leaflet ===== */
+.leaflet-container {
+  background: #0b1220;
+  font: inherit;
+}
+
+/* Инверсия тайлов OSM -> тёмная карта (классический приём для Leaflet) */
+.leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.55);
+}
+
+.leaflet-bar {
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-bar a {
+  background: #1e293b;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+  background: #334155;
+  color: var(--text);
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background: #1e293b;
+  color: #475569;
+}
+
+.leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.7);
+  color: #64748b;
+  font-size: 10px;
+}
+
+.leaflet-control-attribution a {
+  color: #94a3b8;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-popup-content {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: #94a3b8;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: #e2e8f0;
 }

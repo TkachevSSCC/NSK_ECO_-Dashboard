@@ -10,10 +10,12 @@ from sklearn.cluster import KMeans
 from skimage import measure
 from random import randint
 
-
-
-from app.schedules import time_zone_schedule, clustering_schedule
-from app.schemas.station import Station
+from sqlalchemy import text
+from app.db.database import async_session_maker
+from app.db.models.station import Stations
+from app.db.models.station_behavior import StationBehavior
+from app.schedules import clustering_schedule_json, time_zone_schedule, clustering_schedule
+from app.schemas.station import PlotRequest, Station
 from app.services.station_service import StationService
 from app.state.runtime import runtime_state
 
@@ -42,6 +44,63 @@ async def reset_cluster_heads():
     count = await StationService.reset_all_types()
     return JSONResponse(content={"status": "ok", "updated_stations": count})
 
+@router.post("/set_count")
+async def set_stations_count(count: int = 100, moving_count: int | None = None):
+    """
+    Удаляет все станции и создаёт заново указанное количество
+    демо-станций (от 1 до 2000). Первые moving_count станций —
+    движущиеся (type_st=1), остальные — стационарные (type_st=0).
+    По умолчанию все станции движущиеся (как раньше).
+    """
+    count = max(1, min(count, 2000))
+    if moving_count is None:
+        moving_count = count
+    moving_count = max(0, min(moving_count, count))
+
+    rng = np.random.default_rng(45)
+    tlv = [10, 30]
+    low = [54.81, 82.87]
+    high = [55.16, 83.21]
+    points = rng.uniform(low=low, high=high, size=(count, 2))
+    pm = np.round(rng.gamma((3, 5), (2, 4), (count, 2)), 2)
+
+    async with async_session_maker() as session:
+        # полностью чистим старые станции и поведение с перезапуском счётчика id
+        await session.execute(
+            text("TRUNCATE stations_behaviors, stations RESTART IDENTITY CASCADE")
+        )
+        for idx, tpl in enumerate(zip(points, pm), start=1):
+            session.add(
+                Stations(
+                    id=idx,
+                    type_st=1 if idx <= moving_count else 0,
+                    battery_life=100.0,
+                    latitude=float(tpl[0][0]),
+                    longitude=float(tpl[0][1]),
+                    PM_2_5=float(tpl[1][0]),
+                    PM_10=float(tpl[1][1]),
+                    overTLV=int((tpl[1] > tlv).any()),
+                )
+            )
+            session.add(
+                StationBehavior(
+                    station_id=idx,
+                    radius=0.0015,
+                    speed=0.5,
+                    progress=0.0,
+                )
+            )
+        await session.commit()
+
+    runtime_state["mode"] = ""
+    runtime_state["cluster_count"] = 0
+    runtime_state["stations_count"] = count
+    runtime_state["fake_pollutions"] = 0
+
+    return JSONResponse(
+        content={"status": "ok", "stations_count": count, "moving_count": moving_count}
+    )
+
 @router.get("")
 async def get_stations() -> list[Station]:
     return await StationService.find_all()
@@ -54,6 +113,7 @@ async def get_station(station_id: int) -> Station:
 async def update_station(station_id: int, station: Station) -> Station:
     #stations[station_id] = station
     return station
+
 
 @router.get("/plot/cluster")
 async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> JSONResponse:
@@ -219,8 +279,35 @@ async def get_plot(option: int):
         fig, ax = plt.subplots(figsize=(5, 4))
         cluster_zones_no_heads = clustering_schedule(stations_list, 10, ax, mode='battery_life')
 
-    filename = f"app/static/plots/plot_{option}_{datetime.now().strftime('%d.%m.%Y_%H:%M:%S')}.png"
+    filename = f"app/static/plots/plot_{option}_{datetime.now().strftime('%d.%m.%Y_%H-%M-%S')}.png"
     plt.savefig(filename, bbox_inches='tight')
     plt.close()
     
+    return FileResponse(filename, media_type="image/png")
+
+
+@router.post("/plot/cluster_heads")
+async def get_cluster_head_plot(data: PlotRequest):
+    print(11)
+    stations_list = [
+        {
+            "id": station.id,
+            "latitude": station.latitude,
+            "longitude": station.longitude,
+            "battery_life": station.battery
+        }
+        for station in data.stations
+    ]
+    fig, ax = plt.subplots(figsize=(15, 12))
+    print(1)
+    
+    cluster_zones = clustering_schedule_json(stations_list, 10, ax, mode='proximity')
+
+    filename = (
+        f"app/static/plots/plot_cluster_heads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+    )
+
+    plt.savefig(filename, bbox_inches="tight")
+    plt.close()
+    #return JSONResponse(content={"status": "ok"})
     return FileResponse(filename, media_type="image/png")

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import List
 
 
 class Station(BaseModel):
@@ -11,3 +12,11 @@ class Station(BaseModel):
     PM_10: float
     overTLV: int
     
+class StationInput(BaseModel):
+    id: int
+    latitude: float
+    longitude: float
+    battery: float
+
+class PlotRequest(BaseModel):
+    stations: List[StationInput]

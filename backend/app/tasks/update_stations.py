@@ -24,27 +24,32 @@ async def update_stations_async():
         try:
             result = await session.execute(select(Stations, StationBehavior).join(StationBehavior, Stations.id == StationBehavior.station_id))
             stations = result.all()
-            
-            # Инициализация маршрутов (при первом запуске)
-            if not routes:
-                
-                for st, bh in stations:
-                    print(st)
-                    if st.type_st == 1:
-                        base_lat = st.latitude
-                        base_lon = st.longitude
-                        
-                        # Круг из 12 точек (через 30°)
-                        route = [
-                            (
-                                base_lat + bh.radius * math.cos(angle),
-                                base_lon + bh.radius * math.sin(angle)
-                            )
-                            for angle in [i * (2 * math.pi / 12) for i in range(12)]
-                        ]
 
-                        routes[st.id] = route
+            def make_route(st, bh):
+                base_lat = st.latitude
+                base_lon = st.longitude
+                return [
+                    (base_lat + bh.radius * math.cos(angle),
+                     base_lon + bh.radius * math.sin(angle))
+                    for angle in [i * (2 * math.pi / 12) for i in range(12)]
+                ]
+
+            # Удаляем маршруты станций, которых больше нет в БД (например, после ресида)
+            db_ids = {st.id for st, bh in stations}
+            for sid in list(routes.keys()):
+                if sid not in db_ids:
+                    del routes[sid]
+
+            # Маршрут только для движущихся (type_st == 1):
+            #  - удаляем маршруты у станций, ставших стационарными (после ресида с moving_count),
+            #  - создаём маршруты для новых движущихся станций.
+            for st, bh in stations:
+                if st.type_st == 1:
+                    if st.id not in routes:
+                        routes[st.id] = make_route(st, bh)
                         bh.progress = 0.0
+                else:
+                    routes.pop(st.id, None)
 
             # Обновление всех станций
             for st, bh in stations:

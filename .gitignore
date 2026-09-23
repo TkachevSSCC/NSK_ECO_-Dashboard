@@ -1,15 +1,30 @@
+# Environment / secrets
 .env
 
+# Python
 __pycache__/
-
 venv/
+*.pyc
 
+# Node
 node_modules/
+frontend/dist/
 
-*.png 
+# Apple junk
+.DS_Store
+**/.DS_Store
 
-versions/
-
+# Celery beat (binary, пересоздаётся каждую секунду)
 celerybeat-schedule
-celerybeat-schedule-shm
-celerybeat-schedule-wal
+celerybeat-schedule*
+celerybeat.pid
+
+# Сгенерированные графики и временные файлы
+backend/app/static/plots/
+versions/
+*.log
+tmp/
+
+# IDE
+.vscode/
+.idea/

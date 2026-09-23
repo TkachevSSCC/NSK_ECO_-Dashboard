@@ -351,7 +351,6 @@ export default function App() {
             </div>
             {countMsg && <div className="count-msg">{countMsg}</div>}
             <div className="row">
-              <button onClick={handlePollutionsAdd}>Добавить загрязнения</button>
               <button onClick={handlePollutionsMin}>Убрать загрязнения</button>
             </div>
 

@@ -408,7 +408,7 @@ export default function App() {
 
           <section className="card">
             <h2>
-              Самые загрязнённые · топ-{TOP_LIST_ROWS} (PM2.5+PM10, каждые {REFRESH_EVERY_TICKS} тиков)
+              Самые загрязнённые · топ-{TOP_LIST_ROWS}
             </h2>
             <table>
               <thead>

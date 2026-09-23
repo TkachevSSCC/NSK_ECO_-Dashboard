@@ -337,6 +337,19 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
     if mode:
         runtime_state["mode"] = "cluster_head"
         runtime_state["cluster_count"] = len(polygons)
+        # центроиды и радиусы кластеров — для метрики «в глобальную сеть»:
+        # сообщения = кластеры + устройства, вышедшие за пределы кластера
+        runtime_state["cluster_centroids"] = kmeans.cluster_centers_.tolist()
+        radii = np.zeros(num_clusters)
+        for c in range(num_clusters):
+            cp = coords[kmeans.labels_ == c]
+            if len(cp):
+                radii[c] = float(
+                    np.linalg.norm(
+                        cp - kmeans.cluster_centers_[c], axis=1
+                    ).max()
+                )
+        runtime_state["cluster_radii"] = radii.tolist()
     else:
         runtime_state["mode"] = "clusters"
         runtime_state["stations_count"] = len(stations) 

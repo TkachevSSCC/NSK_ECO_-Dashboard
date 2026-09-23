@@ -18,6 +18,8 @@ async def metrics_loop():
         stations = [
             {
                 "id": s.id,
+                "latitude": s.latitude,
+                "longitude": s.longitude,
                 "overTLV": s.overTLV
             }
             for s in stations_raw
@@ -33,6 +35,8 @@ async def metrics_loop():
             cluster_count=cluster_count, 
             fake_pollutions=runtime_state["fake_pollutions"],
             timezone_count=runtime_state.get("timezone_count", 0),
+            cluster_centroids=runtime_state.get("cluster_centroids"),
+            cluster_radii=runtime_state.get("cluster_radii"),
         )
 
         # накапливаем общее количество переданных сообщений (тик = 3 сек)

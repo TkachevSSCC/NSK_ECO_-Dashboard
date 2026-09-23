@@ -12,6 +12,7 @@ from app.db.database import async_session_maker
 from app.db.models.station import Stations
 from app.db.models.station_behavior import StationBehavior
 from app.db.models.types import Types
+from app.core.water import land_points_from
 
 
 async def seed():
@@ -37,7 +38,7 @@ async def seed():
         tlv = [10, 30]
         low = [54.81, 82.87]
         high = [55.16, 83.21]
-        points = rng.uniform(low=low, high=high, size=(n_stations, 2))
+        points = land_points_from(rng, low, high, n_stations)
         pm = np.round(rng.gamma((3, 5), (2, 4), (n_stations, 2)), 2)
 
         for idx, tpl in enumerate(zip(points, pm), start=1):

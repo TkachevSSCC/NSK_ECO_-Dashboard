@@ -18,6 +18,7 @@ from app.schedules import clustering_schedule_json, time_zone_schedule, clusteri
 from app.schemas.station import PlotRequest, Station
 from app.services.station_service import StationService
 from app.state.runtime import runtime_state
+from app.core.water import land_points_from
 
 
 matplotlib.use('agg')
@@ -61,7 +62,7 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
     tlv = [10, 30]
     low = [54.81, 82.87]
     high = [55.16, 83.21]
-    points = rng.uniform(low=low, high=high, size=(count, 2))
+    points = land_points_from(rng, low, high, count)
     pm = np.round(rng.gamma((3, 5), (2, 4), (count, 2)), 2)
 
     async with async_session_maker() as session:

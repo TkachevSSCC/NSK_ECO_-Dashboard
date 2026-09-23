@@ -1,0 +1,147 @@
+"""Определение «воды» для демо-станций (Обь, озёра, каналы).
+
+Вода = точка внутри любого полигона воды (water.json) ИЛИ внутри полосы
+шириной HALF_WIDTH вокруг линии реки/канала (water_lines.json).
+Данные скачаны из OpenStreetMap (Overpass), см. fetch_water.py /
+fetch_water_lines.py.
+"""
+import json
+import os
+
+import numpy as np
+from matplotlib.path import Path
+
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+
+# полуширина полосы вокруг линии реки в градусах (~ 300 м по широте)
+HALF_WIDTH = 0.003
+
+# зона станций (для отсечения лишних сегментов)
+_ST_LAT0, _ST_LAT1, _ST_LON0, _ST_LON1 = 54.81, 55.16, 82.87, 83.21
+_MARGIN = 0.01
+
+_poly_paths = None
+_poly_bbox = None  # (min_lat, max_lat, min_lon, max_lon) для каждого полигона
+_seg = None  # (lat1, lon1, lat2, lon2) массивы
+
+
+def _build_segments():
+    """Разбивает сохранённые линии на сегменты, оставляет только близкие к станциям."""
+    line_path = os.path.join(_DATA_DIR, "water_lines.json")
+    if not os.path.exists(line_path):
+        return None
+    with open(line_path, encoding="utf-8") as f:
+        lines = json.load(f)
+    segs = []
+    for line in lines:
+        pts = line["pts"]
+        for (lat1, lon1), (lat2, lon2) in zip(pts, pts[1:]):
+            mid_lat = (lat1 + lat2) / 2
+            mid_lon = (lon1 + lon2) / 2
+            if (
+                _ST_LAT0 - _MARGIN <= mid_lat <= _ST_LAT1 + _MARGIN
+                and _ST_LON0 - _MARGIN <= mid_lon <= _ST_LON1 + _MARGIN
+            ):
+                segs.append((lat1, lon1, lat2, lon2))
+    if not segs:
+        return None
+    arr = np.asarray(segs, dtype=float)
+    return arr[:, 0], arr[:, 1], arr[:, 2], arr[:, 3]
+
+
+def _load():
+    global _poly_paths, _poly_bbox, _seg
+    if _poly_paths is not None:
+        return
+    _poly_paths = []
+    _poly_bbox = []
+    poly_path = os.path.join(_DATA_DIR, "water.json")
+    if os.path.exists(poly_path):
+        with open(poly_path, encoding="utf-8") as f:
+            polys = json.load(f)
+        for p in polys:
+            if len(p) < 4:
+                continue
+            _poly_paths.append(Path(np.array([(lon, lat) for lat, lon in p])))
+            lats = [pt[0] for pt in p]
+            lons = [pt[1] for pt in p]
+            _poly_bbox.append((min(lats), max(lats), min(lons), max(lons)))
+    _seg = _build_segments()
+
+
+def is_in_water(lat: float, lon: float) -> bool:
+    """True, если точка (lat, lon) попала на воду."""
+    _load()
+    for bbox, path in zip(_poly_bbox, _poly_paths):
+        if not (bbox[0] <= lat <= bbox[1] and bbox[2] <= lon <= bbox[3]):
+            continue
+        if path.contains_point((lon, lat)):
+            return True
+    if _seg is not None:
+        lat1, lon1, lat2, lon2 = _seg
+        dx = lat2 - lat1
+        dy = lon2 - lon1
+        l2 = dx * dx + dy * dy
+        t = ((lat - lat1) * dx + (lon - lon1) * dy) / np.maximum(l2, 1e-12)
+        t = np.clip(t, 0.0, 1.0)
+        projx = lat1 + t * dx
+        projy = lon1 + t * dy
+        if np.hypot(lat - projx, lon - projy).min() < HALF_WIDTH:
+            return True
+    return False
+
+
+def find_land_near(lat: float, lon: float, max_r: float = 0.012):
+    """Ищет ближайшую сушу вокруг точки (если и сама точка, и старт на воде)."""
+    for r in np.linspace(0.0006, max_r, 10):
+        for ang in np.linspace(0.0, 2 * np.pi, 16, endpoint=False):
+            clat = lat + r * np.sin(ang) * 1.2
+            clon = lon + r * np.cos(ang)
+            if not is_in_water(clat, clon):
+                return float(clat), float(clon)
+    return float(lat), float(lon)
+
+
+def snap_to_land(old_lat, old_lon, new_lat, new_lon):
+    """Если новая точка на воде — возвращает последнюю сушу на отрезке old→new.
+
+    Возвращаем точку lo (последний гарантированно сухой параметр), а не середину
+    интервала: середина может оказаться на «водной» стороне границы и всё равно
+    классифицироваться как вода, из-за чего станция застревает в воде.
+    """
+    if not is_in_water(new_lat, new_lon):
+        return float(new_lat), float(new_lon)
+    if is_in_water(old_lat, old_lon):
+        return find_land_near(new_lat, new_lon)
+    lo, hi = 0.0, 1.0
+    lo_lat, lo_lon = old_lat, old_lon
+    for _ in range(25):
+        mid = (lo + hi) / 2
+        mlat = old_lat + (new_lat - old_lat) * mid
+        mlon = old_lon + (new_lon - old_lon) * mid
+        if is_in_water(mlat, mlon):
+            hi = mid
+        else:
+            lo = mid
+            lo_lat, lo_lon = mlat, mlon
+    return float(lo_lat), float(lo_lon)
+
+
+def random_land_point(rng: np.random.Generator, low, high, tries: int = 60):
+    """Генерирует случайную точку в прямоугольнике low..high, но не на воде."""
+    for _ in range(tries):
+        p = rng.uniform(low=low, high=high)
+        if not is_in_water(float(p[0]), float(p[1])):
+            return p
+    # запасной вариант — небольшой сдвиг в сторону от границы
+    return random_land_point(rng, low, high, tries=1) if tries > 1 else high
+
+
+def land_points_from(rng, low, high, count: int):
+    """Список из count сухопутных точек в прямоугольнике."""
+    out = []
+    while len(out) < count:
+        p = rng.uniform(low=low, high=high)
+        if not is_in_water(float(p[0]), float(p[1])):
+            out.append(p)
+    return np.asarray(out, dtype=float)

@@ -2,6 +2,7 @@ import asyncio
 import random
 import math
 from app.core.celery_app import celery
+from app.core.water import snap_to_land
 from app.db.database import async_session_maker
 from app.db.models.station import Stations
 from app.db.models.station_behavior import StationBehavior
@@ -65,8 +66,13 @@ async def update_stations_async():
                     frac = bh.progress % 1.0
 
                     # плавное движение между точками
-                    st.latitude = lat1 + (lat2 - lat1) * frac
-                    st.longitude = lon1 + (lon2 - lon1) * frac
+                    old_lat, old_lon = st.latitude, st.longitude
+                    new_lat = lat1 + (lat2 - lat1) * frac
+                    new_lon = lon1 + (lon2 - lon1) * frac
+                    # если новая точка попала на воду — остаёмся на ближайшей суше
+                    st.latitude, st.longitude = snap_to_land(
+                        old_lat, old_lon, new_lat, new_lon
+                    )
 
                     # продвижение по кругу
                     bh.progress += bh.speed

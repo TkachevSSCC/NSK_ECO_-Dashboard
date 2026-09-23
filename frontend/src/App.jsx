@@ -170,6 +170,32 @@ export default function App() {
     }
   };
 
+  const handleClearPollution = async () => {
+    const id = parseInt(pollId, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      setPollMsg("Укажите корректный № станции");
+      return;
+    }
+    setPollMsg("Сбрасываю…");
+    try {
+      const res = await fetch(
+        `${BASE}/stations/${id}/clear_pollution`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setPollMsg(data.message || "Ошибка сброса загрязнения");
+        return;
+      }
+      setPollMsg(
+        `Станция ${data.station_id}: PM2.5=${data.PM_2_5}, PM10=${data.PM_10} — фоновый уровень`
+      );
+    } catch (err) {
+      console.error("Ошибка сброса загрязнения:", err);
+      setPollMsg("Не удалось сбросить загрязнение");
+    }
+  };
+
   const handleSetStationCount = async () => {
     const n = Math.max(1, Math.min(parseInt(stationCount, 10) || 100, 2000));
     const m = Math.max(0, Math.min(parseInt(movingCount, 10) || 0, n));
@@ -395,6 +421,7 @@ export default function App() {
                 </div>
                 <div className="row">
                   <button onClick={handleAddPollution}>Внести загрязнение</button>
+                  <button onClick={handleClearPollution}>Сбросить до фона</button>
                 </div>
               </>
             )}

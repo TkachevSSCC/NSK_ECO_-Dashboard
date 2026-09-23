@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from skimage import measure
-from random import randint
+from random import randint, uniform
 
 from sqlalchemy import text
 from app.db.database import async_session_maker
@@ -163,6 +163,46 @@ async def pollute_station(
             "PM_10": round(pm10, 2),
             "overTLV": round(pm25, 2) > 25 or round(pm10, 2) > 50,
             "ticks": ticks,
+        }
+    )
+
+
+@router.post("/{station_id}/clear_pollution")
+async def clear_pollution(station_id: int):
+    """Сбрасывает загрязнение выбранной станции к фоновому (дефолтному) уровню:
+    снимает Redis-оверрайд и пишет в БД свежие фоновые значения.
+    Дальше станция дрейфует от этого уровня как обычно."""
+    st = await StationService.find_by_id(station_id)
+    if st is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": f"Станция {station_id} не найдена"},
+        )
+
+    get_redis().hdel(POLLUTION_OVERRIDE_KEY, str(station_id))
+
+    pm25 = round(uniform(0.5, 10.0), 2)
+    pm10 = round(uniform(0.5, 12.0), 2)
+
+    async with async_session_maker() as session:
+        cur = await session.get(Stations, station_id)
+        if cur is None:
+            return JSONResponse(
+                status_code=404,
+                content={"status": "error", "message": f"Станция {station_id} не найдена"},
+            )
+        cur.PM_2_5 = pm25
+        cur.PM_10 = pm10
+        cur.overTLV = False
+        await session.commit()
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "station_id": station_id,
+            "PM_2_5": pm25,
+            "PM_10": pm10,
+            "overTLV": False,
         }
     )
 

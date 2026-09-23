@@ -267,6 +267,17 @@ td:first-child {
   vertical-align: middle;
 }
 
+.legend-group {
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.legend-note {
+  margin-top: 6px;
+  font-size: 11px;
+}
+
 /* ===== График метрик ===== */
 .chart-box {
   width: 100%;

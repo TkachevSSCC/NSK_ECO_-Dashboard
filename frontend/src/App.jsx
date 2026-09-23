@@ -337,9 +337,10 @@ export default function App() {
           </div>
 
           <div className="legend">
+            <div className="legend-group">PM2.5, мкг/м³</div>
             <span className="key">
               <span className="dot" style={{ background: "#22c55e" }} />
-              PM2.5 &lt; 15 — норма
+              &lt; 15 — норма
             </span>
             <span className="key">
               <span className="dot" style={{ background: "#eab308" }} />
@@ -353,6 +354,26 @@ export default function App() {
               <span className="dot" style={{ background: "#ef4444" }} />
               ≥ 75 — опасное
             </span>
+            <div className="legend-group">PM10, мкг/м³</div>
+            <span className="key">
+              <span className="dot" style={{ background: "#22c55e" }} />
+              &lt; 30 — норма
+            </span>
+            <span className="key">
+              <span className="dot" style={{ background: "#eab308" }} />
+              30–70 — умеренно
+            </span>
+            <span className="key">
+              <span className="dot" style={{ background: "#f97316" }} />
+              70–150 — высокое
+            </span>
+            <span className="key">
+              <span className="dot" style={{ background: "#ef4444" }} />
+              ≥ 150 — опасное
+            </span>
+            <div className="legend-note">
+              Цвет маркера — по худшему из PM2.5 / PM10
+            </div>
           </div>
         </section>
 

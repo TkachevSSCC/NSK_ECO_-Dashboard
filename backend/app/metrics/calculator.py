@@ -5,11 +5,13 @@ def count_out_of_cluster(
     stations: list[dict],
     centroids: list[list[float]] | None,
     radii: list[float] | None,
+    moving_only: bool = False,
 ) -> int:
     """
     Сколько устройств вышли за пределы своего кластера:
     расстояние от устройства до ближайшего центроида больше
     радиуса этого кластера (радиус зафиксирован при кластеризации).
+    При moving_only=True учитываются только движущиеся (type_st == 1).
     """
     if not stations or not centroids or not radii:
         return 0
@@ -27,7 +29,12 @@ def count_out_of_cluster(
     nearest = np.argmin(dists, axis=1)
     dist = dists[np.arange(len(coords)), nearest]
 
-    return int((dist > rad[nearest]).sum())
+    outside = dist > rad[nearest]
+    if moving_only:
+        moving = np.array([s.get("type_st") == 1 for s in stations])
+        outside = outside & moving
+
+    return int(outside.sum())
 
 
 def calculate_messages_per_second(

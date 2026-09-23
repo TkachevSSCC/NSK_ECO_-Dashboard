@@ -7,4 +7,5 @@ runtime_metrics = {
     "total_zone_messages": 0,
     "total_message_weight_kb": 0.0,
     "mode": None,
+    "limit_exceeded": False,
 }

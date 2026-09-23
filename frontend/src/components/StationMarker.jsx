@@ -17,7 +17,7 @@ const pollutionLevel = (pm, cutoffs) => {
 const PM25_CUTOFFS = [15, 35, 75];
 const PM10_CUTOFFS = [30, 70, 150];
 
-/** Цвет маркера по худшему из PM2.5 / PM10 */
+/** Цвет маркера по максимальному уровню из PM2.5 / PM10 */
 const levelColor = (pm25, pm10) => {
   const lvl = Math.max(
     pollutionLevel(pm25, PM25_CUTOFFS),

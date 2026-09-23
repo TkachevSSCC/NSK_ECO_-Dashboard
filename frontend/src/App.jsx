@@ -372,7 +372,7 @@ export default function App() {
               ≥ 150 — опасное
             </span>
             <div className="legend-note">
-              Цвет маркера — по худшему из PM2.5 / PM10
+              Цвет маркера — по максимальному из PM2.5 / PM10
             </div>
           </div>
         </section>

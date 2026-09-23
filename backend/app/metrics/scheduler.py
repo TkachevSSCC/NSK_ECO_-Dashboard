@@ -34,6 +34,17 @@ async def metrics_loop():
         # накапливаем общее количество переданных сообщений (тик = 3 сек)
         runtime_metrics["total_messages"] += mps * 3
 
+        # сообщения в пределах зоны: устройства, которые не передают в сеть
+        zone_messages = max(0, len(stations) - mps) * 3
+        runtime_metrics["total_zone_messages"] += zone_messages
+
+        # общий вес сообщений:
+        # 0.5 * сообщения в глобальную сеть + 0.2 * сообщения в пределах зоны
+        runtime_metrics["total_message_weight"] = (
+            0.5 * runtime_metrics["total_messages"]
+            + 0.2 * runtime_metrics["total_zone_messages"]
+        )
+
         runtime_metrics.update({
             "timestamp": datetime.utcnow().isoformat(),
             "messages_per_second": mps,

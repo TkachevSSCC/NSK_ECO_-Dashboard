@@ -12,6 +12,7 @@ import {
 export default function MetricsChartOverlay({ visible }) {
   const [data, setData] = useState([]);
   const [totalMessages, setTotalMessages] = useState(0);
+  const [totalWeight, setTotalWeight] = useState(0);
 
   useEffect(() => {
     if (!visible) return;
@@ -21,6 +22,7 @@ export default function MetricsChartOverlay({ visible }) {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       setTotalMessages(msg.total_messages ?? 0);
+      setTotalWeight(msg.total_message_weight ?? 0);
       setData((prev) => [
         ...prev.slice(-100), // ~2 минуты (40 * 3 сек)
         {
@@ -48,6 +50,10 @@ export default function MetricsChartOverlay({ visible }) {
           <div className="total-row">
             Всего передано сообщений:{" "}
             <b>{totalMessages.toLocaleString("ru-RU")}</b>
+          </div>
+          <div className="total-row">
+            Общий вес сообщений:{" "}
+            <b>{totalWeight.toFixed(1)}</b>
           </div>
           <div
             style={{

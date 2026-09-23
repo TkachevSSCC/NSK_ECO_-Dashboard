@@ -6,6 +6,7 @@
 fetch_water_lines.py.
 """
 import json
+import math
 import os
 
 import numpy as np
@@ -91,15 +92,42 @@ def is_in_water(lat: float, lon: float) -> bool:
     return False
 
 
+def nearest_land(lat: float, lon: float, max_r: float = 0.02):
+    """Возвращает ближайшую сушу вокруг точки (lat, lon) или None, если не нашли.
+
+    Поиск веером: концентрические кольца с 32 направлениями, засчитывается
+    самая близкая сухая точка (по фактическому расстоянию в метрах ~).
+    """
+    if not is_in_water(lat, lon):
+        return float(lat), float(lon)
+    coslat = math.cos(math.radians(lat))
+    best = None
+    best_d2 = math.inf
+    radii = np.linspace(0.0004, max_r, 32)
+    for r in radii:
+        for ang in range(32):
+            a = ang * (2 * math.pi / 32)
+            clat = lat + r * math.sin(a) / coslat
+            clon = lon + r * math.cos(a)
+            if not is_in_water(clat, clon):
+                dx = (clat - lat) * coslat
+                dy = clon - lon
+                d2 = dx * dx + dy * dy
+                if d2 < best_d2:
+                    best_d2 = d2
+                    best = (float(clat), float(clon))
+        # как только найдена суша и радиус кольца уже значимый — дальше можно не искать
+        if best is not None and r >= 0.004:
+            break
+    return best
+
+
 def find_land_near(lat: float, lon: float, max_r: float = 0.012):
     """Ищет ближайшую сушу вокруг точки (если и сама точка, и старт на воде)."""
-    for r in np.linspace(0.0006, max_r, 10):
-        for ang in np.linspace(0.0, 2 * np.pi, 16, endpoint=False):
-            clat = lat + r * np.sin(ang) * 1.2
-            clon = lon + r * np.cos(ang)
-            if not is_in_water(clat, clon):
-                return float(clat), float(clon)
-    return float(lat), float(lon)
+    lp = nearest_land(lat, lon, max_r=max_r)
+    if lp is None:
+        return float(lat), float(lon)
+    return lp
 
 
 def snap_to_land(old_lat, old_lon, new_lat, new_lon):
@@ -128,20 +156,34 @@ def snap_to_land(old_lat, old_lon, new_lat, new_lon):
 
 
 def random_land_point(rng: np.random.Generator, low, high, tries: int = 60):
-    """Генерирует случайную точку в прямоугольнике low..high, но не на воде."""
+    """Генерирует случайную точку в прямоугольнике low..high.
+
+    Если точка попала на воду — переносит её на ближайшую сушу.
+    """
     for _ in range(tries):
         p = rng.uniform(low=low, high=high)
-        if not is_in_water(float(p[0]), float(p[1])):
-            return p
-    # запасной вариант — небольшой сдвиг в сторону от границы
-    return random_land_point(rng, low, high, tries=1) if tries > 1 else high
+        if is_in_water(float(p[0]), float(p[1])):
+            lp = nearest_land(float(p[0]), float(p[1]))
+            if lp is None:
+                continue
+            p = np.asarray(lp)
+        return p
+    return high
 
 
 def land_points_from(rng, low, high, count: int):
-    """Список из count сухопутных точек в прямоугольнике."""
+    """Список из count сухопутных точек в прямоугольнике.
+
+    Координаты, попавшие на воду, переносятся на ближайшую сушу
+    (а не перегенерируются), чтобы разброс станций сохранялся.
+    """
     out = []
     while len(out) < count:
         p = rng.uniform(low=low, high=high)
-        if not is_in_water(float(p[0]), float(p[1])):
-            out.append(p)
+        if is_in_water(float(p[0]), float(p[1])):
+            lp = nearest_land(float(p[0]), float(p[1]))
+            if lp is None:
+                continue
+            p = np.asarray(lp)
+        out.append(p)
     return np.asarray(out, dtype=float)

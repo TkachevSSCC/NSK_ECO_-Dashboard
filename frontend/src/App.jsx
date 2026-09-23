@@ -328,7 +328,7 @@ export default function App() {
           </section>
 
           <section className="card">
-            <h2>Метрики системы</h2>
+            <h2>Сетевая нагрузка</h2>
             <MetricsChartOverlay visible={chartVisible} />
           </section>
 

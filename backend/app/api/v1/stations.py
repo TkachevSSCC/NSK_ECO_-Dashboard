@@ -207,9 +207,20 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
         runtime_state["mode"] = "clusters"
         runtime_state["stations_count"] = len(stations) 
 
+    # состав каждого кластера: какие устройства в него входят
+    members = []
+    for cluster_id in range(num_clusters):
+        mask = kmeans.labels_ == cluster_id
+        cl_ids = [int(sid) for sid in station_ids[mask]]
+        members.append({
+            "cluster_id": int(cluster_id),
+            "count": len(cl_ids),
+            "stations": cl_ids
+        })
+
     print(runtime_state)
 
-    return JSONResponse(content={"polygons": polygons, "heads": cluster_heads})
+    return JSONResponse(content={"polygons": polygons, "heads": cluster_heads, "members": members})
 
 
 
@@ -228,6 +239,7 @@ async def get_timezone_schedule(capacity: int = 10) -> JSONResponse:
             'overTLV': st.overTLV
         })
     coords = np.array([[s['latitude'], s['longitude']] for s in stations])
+    station_ids = np.array([s['id'] for s in stations])
     x_min = coords[:, 0].min() - 0.01
     x_max = coords[:, 0].max() + 0.01
     y_min = coords[:, 1].min() - 0.01
@@ -238,11 +250,17 @@ async def get_timezone_schedule(capacity: int = 10) -> JSONResponse:
 
     zones = []
     for i in range(len(lines) - 1):
+        # станции, попадающие в полосу по широте
+        mask = (coords[:, 0] >= lines[i]) & (coords[:, 0] <= lines[i + 1])
+        member_ids = [int(sid) for sid in station_ids[mask]]
         zones.append({
+            "zone_id": i,
             "x_min": lines[i],
             "x_max": lines[i + 1],
             "y_min": y_min,
-            "y_max": y_max
+            "y_max": y_max,
+            "count": len(member_ids),
+            "stations": member_ids
         })
     
     runtime_state["stations_count"] = len(stations)

@@ -17,6 +17,7 @@ export default function MapView({
   showClusters,
   showClusterHeads,
   showBatteryHeads,
+  highlightIds = [],
 }) {
   return (
     <MapContainer
@@ -30,7 +31,11 @@ export default function MapView({
       />
 
       {stations.map((station) => (
-        <StationMarker key={station.id} station={station} />
+        <StationMarker
+          key={station.id}
+          station={station}
+          highlighted={highlightIds.includes(station.id)}
+        />
       ))}
 
       {/* таймзоны */}

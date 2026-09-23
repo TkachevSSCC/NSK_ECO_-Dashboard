@@ -194,6 +194,57 @@ td:first-child {
   color: var(--text);
 }
 
+/* ===== Состав зон и кластеров ===== */
+.table-title {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  color: var(--acc);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover td {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.toggle-sym {
+  text-align: right;
+  color: var(--dim);
+  font-size: 10px;
+  width: 24px;
+}
+
+.member-list {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--dim);
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.chip {
+  display: inline-block;
+  margin: 2px 3px 2px 0;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.7);
+  color: var(--text);
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.highlight-bar {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 /* ===== Легенда ===== */
 .legend {
   font-size: 12px;

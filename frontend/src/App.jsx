@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, Fragment } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import MapView from "./components/MapView";
@@ -28,6 +28,31 @@ export default function App() {
 
   const [clusters, setClusters] = useState(null);
 
+  // подсветка устройств и раскрытые строки таблицы зон/кластеров
+  const [highlightIds, setHighlightIds] = useState([]);
+  const [expanded, setExpanded] = useState({});
+
+  const toggleHighlight = (ids = []) => {
+    setHighlightIds((prev) => {
+      const set = new Set(prev);
+      // если группа уже вся подсвечена — снимаем, иначе добавляем
+      if (ids.length > 0 && ids.every((id) => set.has(id))) {
+        ids.forEach((id) => set.delete(id));
+      } else {
+        ids.forEach((id) => set.add(id));
+      }
+      return [...set];
+    });
+  };
+
+  const toggleExpanded = (key) =>
+    setExpanded((p) => ({ ...p, [key]: !p[key] }));
+
+  const clearHighlights = () => {
+    setHighlightIds([]);
+    setExpanded({});
+  };
+
   const resetOverlays = async () => {
     const res = await fetch(`${BASE}/stations/reset`, { method: "POST" });
     return res.json();
@@ -36,6 +61,7 @@ export default function App() {
   const handleToggleClusters = async () => {
     if (showClusters) {
       setShowClusters(false);
+      clearHighlights();
       await resetOverlays();
     } else {
       setShowClusterHeads(false);
@@ -50,12 +76,15 @@ export default function App() {
   const handleToggleClusterHeads = async () => {
     if (showClusterHeads) {
       setShowClusterHeads(false);
+      clearHighlights();
       await resetOverlays();
     } else if (showBatteryHeads) {
       setShowBatteryHeads(false);
+      clearHighlights();
       await resetOverlays();
     } else if (showClusters) {
       setShowClusters(false);
+      clearHighlights();
       await resetOverlays();
     } else {
       const response = await fetch(`${BASE}/stations/plot/cluster?mode=head`);
@@ -68,12 +97,15 @@ export default function App() {
   const handleToggleBatteryHeads = async () => {
     if (showBatteryHeads) {
       setShowBatteryHeads(false);
+      clearHighlights();
       await resetOverlays();
     } else if (showClusterHeads) {
       setShowClusterHeads(false);
+      clearHighlights();
       await resetOverlays();
     } else if (showClusters) {
       setShowClusters(false);
+      clearHighlights();
       await resetOverlays();
     } else {
       const response = await fetch(
@@ -88,6 +120,7 @@ export default function App() {
   const handleToggleZones = async () => {
     if (showZones) {
       setShowZones(false);
+      clearHighlights();
     } else {
       const response = await fetch(`${BASE}/stations/plot/timezone`);
       const data = await response.json();
@@ -126,6 +159,7 @@ export default function App() {
       setShowBatteryHeads(false);
       setZones([]);
       setClusters(null);
+      clearHighlights();
     } catch (err) {
       console.error("Ошибка смены количества устройств:", err);
       setCountMsg("Не удалось изменить количество устройств");
@@ -217,6 +251,7 @@ export default function App() {
               showClusters={showClusters}
               showClusterHeads={showClusterHeads}
               showBatteryHeads={showBatteryHeads}
+              highlightIds={highlightIds}
             />
           </div>
 
@@ -323,6 +358,132 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+          </section>
+
+          <section className="card">
+            <h2>Состав зон и кластеров</h2>
+
+            {highlightIds.length > 0 && (
+              <div className="row highlight-bar">
+                <span className="dim-note">
+                  Подсвечено устройств: {highlightIds.length}
+                </span>
+                <button onClick={() => setHighlightIds([])}>Сбросить</button>
+              </div>
+            )}
+
+            {showZones && zones.length > 0 && (
+              <>
+                <h3 className="table-title">Тайм-зоны</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Зона</th>
+                      <th>Устройств</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {zones.map((z, i) => {
+                      const key = `z:${z.zone_id ?? i}`;
+                      return (
+                        <Fragment key={key}>
+                          <tr
+                            className="clickable"
+                            onClick={() => {
+                              toggleExpanded(key);
+                              toggleHighlight(z.stations || []);
+                            }}
+                          >
+                            <td>{i}</td>
+                            <td>{z.count ?? (z.stations || []).length}</td>
+                            <td className="toggle-sym">
+                              {expanded[key] ? "▼" : "▶"}
+                            </td>
+                          </tr>
+                          {expanded[key] && (
+                            <tr>
+                              <td colSpan="3" className="member-list">
+                                {(z.stations || []).length === 0
+                                  ? "—"
+                                  : (z.stations || []).map((id) => (
+                                      <span key={id} className="chip">
+                                        #{id}
+                                      </span>
+                                    ))}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            {(showClusters ||
+              showClusterHeads ||
+              showBatteryHeads) &&
+              clusters?.members?.length > 0 && (
+                <>
+                  <h3 className="table-title">Кластеры</h3>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Кластер</th>
+                        <th>Устройств</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clusters.members.map((m) => {
+                        const key = `c:${m.cluster_id}`;
+                        return (
+                          <Fragment key={key}>
+                            <tr
+                              className="clickable"
+                              onClick={() => {
+                                toggleExpanded(key);
+                                toggleHighlight(m.stations || []);
+                              }}
+                            >
+                              <td>{m.cluster_id}</td>
+                              <td>{m.count ?? (m.stations || []).length}</td>
+                              <td className="toggle-sym">
+                                {expanded[key] ? "▼" : "▶"}
+                              </td>
+                            </tr>
+                            {expanded[key] && (
+                              <tr>
+                                <td colSpan="3" className="member-list">
+                                  {(m.stations || []).length === 0
+                                    ? "—"
+                                    : (m.stations || []).map((id) => (
+                                        <span key={id} className="chip">
+                                          #{id}
+                                        </span>
+                                      ))}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
+              )}
+
+            {!showZones &&
+              !showClusters &&
+              !showClusterHeads &&
+              !showBatteryHeads && (
+                <p className="dim-note">
+                  Включите «Показать таймзоны» или «Показать кластеры»,
+                  чтобы увидеть состав зон и кластеров.
+                </p>
+              )}
           </section>
         </div>
       </main>

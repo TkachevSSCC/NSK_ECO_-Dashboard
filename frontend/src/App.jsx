@@ -131,11 +131,24 @@ export default function App() {
     }
   };
 
-  const handlePollutionsAdd = async () => {
-    await fetch(`${BASE}/stations/fake_pollutions`, { method: "POST" });
-  };
   const handlePollutionsMin = async () => {
-    await fetch(`${BASE}/stations/clear_fake_pollutions`, { method: "POST" });
+    setCountMsg("Убираю загрязнения…");
+    try {
+      const res = await fetch(`${BASE}/stations/clear_pollutions`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setCountMsg(data.message || "Ошибка удаления загрязнений");
+        return;
+      }
+      setCountMsg(
+        `Загрязнения удалены: ${data.stations_count} станций на фоновом уровне`
+      );
+    } catch (err) {
+      console.error("Ошибка удаления загрязнений:", err);
+      setCountMsg("Не удалось удалить загрязнения");
+    }
   };
 
   const handleAddPollution = async () => {

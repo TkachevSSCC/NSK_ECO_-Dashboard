@@ -10,7 +10,7 @@ from sklearn.cluster import KMeans
 from skimage import measure
 from random import randint, uniform
 
-from sqlalchemy import text
+from sqlalchemy import text, select
 from app.db.database import async_session_maker
 from app.db.models.station import Stations
 from app.db.models.station_behavior import StationBehavior
@@ -204,6 +204,28 @@ async def clear_pollution(station_id: int):
             "PM_10": pm10,
             "overTLV": False,
         }
+    )
+
+
+@router.post("/clear_pollutions")
+async def clear_all_pollutions():
+    """Сбрасывает загрязнение на ВСЕХ станциях к фоновому уровню:
+    удаляет все Redis-оверрайды и пишет в БД фоновые значения."""
+    get_redis().delete(POLLUTION_OVERRIDE_KEY)
+
+    async with async_session_maker() as session:
+        stations_all = (await session.execute(select(Stations))).scalars().all()
+        for cur in stations_all:
+            cur.PM_2_5 = round(uniform(0.5, 10.0), 2)
+            cur.PM_10 = round(uniform(0.5, 12.0), 2)
+            cur.overTLV = False
+        await session.commit()
+        n = len(stations_all)
+
+    runtime_state["fake_pollutions"] = 0
+
+    return JSONResponse(
+        content={"status": "ok", "stations_count": n}
     )
 
 

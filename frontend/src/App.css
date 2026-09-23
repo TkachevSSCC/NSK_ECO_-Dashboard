@@ -276,6 +276,14 @@ td:first-child {
   padding: 6px;
 }
 
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 2px;
+}
+
 .dim-note {
   color: var(--dim);
   font-size: 13px;

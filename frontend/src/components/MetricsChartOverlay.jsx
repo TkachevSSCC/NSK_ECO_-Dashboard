@@ -24,12 +24,20 @@ export default function MetricsChartOverlay({ visible }) {
         {
           time: new Date(msg.timestamp).toLocaleTimeString(),
           value: msg.messages_per_second,
+          total: msg.stations_count,
         },
       ]);
     };
 
     return () => ws.close();
   }, [visible]);
+
+  // вторая (жёлтая) линия — все устройства, которые сейчас не передают:
+  // общее количество устройств минус текущее значение
+  const chartData = data.map((d) => ({
+    ...d,
+    free: (d.total ?? 0) - d.value,
+  }));
 
   return (
     <div>
@@ -42,11 +50,24 @@ export default function MetricsChartOverlay({ visible }) {
               margin: "0 0 6px 4px",
             }}
           >
-            Сообщений / сек
+            <span style={{ marginRight: 14 }}>
+              <i
+                className="legend-dot"
+                style={{ background: "#38bdf8" }}
+              />{" "}
+              Передают
+            </span>
+            <span>
+              <i
+                className="legend-dot"
+                style={{ background: "#facc15" }}
+              />{" "}
+              Не передают
+            </span>
           </div>
           <div className="chart-box">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis
                   dataKey="time"
@@ -75,6 +96,15 @@ export default function MetricsChartOverlay({ visible }) {
                   stroke="#38bdf8"
                   strokeWidth={2}
                   dot={false}
+                  name="Передают"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="free"
+                  stroke="#facc15"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Не передают"
                 />
               </LineChart>
             </ResponsiveContainer>

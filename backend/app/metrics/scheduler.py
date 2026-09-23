@@ -34,7 +34,8 @@ async def metrics_loop():
         runtime_metrics.update({
             "timestamp": datetime.utcnow().isoformat(),
             "messages_per_second": mps,
-            "mode": mode
+            "mode": mode,
+            "stations_count": len(stations)
         })
 
         await asyncio.sleep(3)

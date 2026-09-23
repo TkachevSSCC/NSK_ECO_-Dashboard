@@ -2,7 +2,6 @@ import React, { useState, Fragment } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import MapView from "./components/MapView";
-import Modal from "./components/Modal";
 import MetricsChartOverlay from "./components/MetricsChartOverlay";
 import { useStations } from "./hooks/useStations";
 
@@ -10,10 +9,6 @@ const BASE = "http://127.0.0.1:8000";
 
 export default function App() {
   const stations = useStations();
-
-  const [option, setOption] = useState("1");
-  const [plotUrl, setPlotUrl] = useState(null);
-  const [showModal, setShowModal] = useState(false);
 
   const [stationCount, setStationCount] = useState(100);
   const [movingCount, setMovingCount] = useState(100);
@@ -166,26 +161,6 @@ export default function App() {
     }
   };
 
-  const handleGeneratePlot = async () => {
-    try {
-      const response = await fetch(`${BASE}/stations/plot/${option}`, {
-        headers: { Accept: "image/png" },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ошибка запроса: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const imgUrl = URL.createObjectURL(blob);
-      setPlotUrl(imgUrl);
-      setShowModal(true);
-    } catch (err) {
-      console.error("Ошибка загрузки графика:", err);
-      alert("Не удалось загрузить расписание. Проверь сервер или адрес API.");
-    }
-  };
-
   const chartVisible =
     showZones || showClusters || showClusterHeads || showBatteryHeads;
 
@@ -278,20 +253,6 @@ export default function App() {
         <div className="side">
           <section className="card">
             <h2>Управление</h2>
-            <div className="row mode-row">
-              <span className="mode-label">Расписание:</span>
-              <select
-                id="plot-select"
-                value={option}
-                onChange={(e) => setOption(e.target.value)}
-              >
-                <option value="1">Time Zone</option>
-                <option value="2">Cluster</option>
-                <option value="3">Cluster with cluster heads</option>
-                <option value="4">Cluster with battery life based cluster heads</option>
-              </select>
-              <button onClick={handleGeneratePlot}>Построить</button>
-            </div>
             <div className="row">
               <span className="mode-label">Устройств:</span>
               <input
@@ -487,16 +448,6 @@ export default function App() {
           </section>
         </div>
       </main>
-
-      {showModal && (
-        <Modal
-          plotUrl={plotUrl}
-          onClose={() => {
-            setShowModal(false);
-            setPlotUrl(null);
-          }}
-        />
-      )}
     </div>
   );
 }

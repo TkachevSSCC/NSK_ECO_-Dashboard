@@ -31,6 +31,9 @@ async def metrics_loop():
             timezone_count=runtime_state.get("timezone_count", 0),
         )
 
+        # накапливаем общее количество переданных сообщений (тик = 3 сек)
+        runtime_metrics["total_messages"] += mps * 3
+
         runtime_metrics.update({
             "timestamp": datetime.utcnow().isoformat(),
             "messages_per_second": mps,

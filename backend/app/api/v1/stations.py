@@ -97,7 +97,7 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
                     station_id=idx,
                     # у каждой станции свои скорость, радиус орбиты и фаза
                     radius=round(float(rng.uniform(0.0006, 0.0035)), 6),
-                    speed=round(float(rng.uniform(1.6, 8.0)), 2),
+                    speed=round(float(rng.uniform(3.2, 16.0)), 2),
                     progress=round(float(rng.uniform(0.0, 11.99)), 2),
                 )
             )

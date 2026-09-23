@@ -112,7 +112,7 @@ async def pollute_station(
     station_id: int,
     pm25: float,
     pm10: float,
-    ticks: int = 10,
+    ticks: int = 1,
 ):
     """Добавляет указанный уровень загрязнения (PM2.5 и PM10) конкретной станции.
 

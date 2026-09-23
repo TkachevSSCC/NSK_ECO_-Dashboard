@@ -1,3 +1,4 @@
+from random import uniform
 from sqlalchemy.future import select
 from app.db.models.station import Stations
 from app.services.base import BaseService
@@ -27,6 +28,11 @@ class StationService(BaseService):
 
     @classmethod
     async def reset_all_types(cls):
+        """
+        Возвращает станции-хэды (type_st == 2) к исходному типу (1) и
+        очищает их значения до фонового уровня. Возвращает список id.
+        """
+        reset_ids = []
         async with async_session_maker() as session:
             result = await session.execute(select(Stations))
             stations = result.scalars().all()
@@ -34,6 +40,11 @@ class StationService(BaseService):
             for st in stations:
                 if st.type_st == 2:
                     st.type_st = 1
+                    st.PM_2_5 = round(uniform(0.5, 10.0), 2)
+                    st.PM_10 = round(uniform(0.5, 12.0), 2)
+                    st.overTLV = False
+                    reset_ids.append(st.id)
                     session.add(st)
 
             await session.commit()
+        return reset_ids

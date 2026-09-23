@@ -41,10 +41,15 @@ async def clear_fake_pollutions():
 @router.post("/reset")
 async def reset_cluster_heads():
     """
-    Сбрасывает все станции к их исходному типу.
+    Сбрасывает все станции к их исходному типу, а устройствам,
+    которые были кластер-хэдами, очищает значения до фонового уровня.
     """
-    count = await StationService.reset_all_types()
-    return JSONResponse(content={"status": "ok", "updated_stations": count})
+    reset_ids = await StationService.reset_all_types()
+    if reset_ids:
+        rc = get_redis()
+        for sid in reset_ids:
+            rc.hdel(POLLUTION_OVERRIDE_KEY, str(sid))
+    return JSONResponse(content={"status": "ok", "updated_stations": len(reset_ids)})
 
 @router.post("/set_count")
 async def set_stations_count(count: int = 100, moving_count: int | None = None):

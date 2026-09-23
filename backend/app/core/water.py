@@ -12,6 +12,8 @@ import os
 import numpy as np
 from matplotlib.path import Path
 
+from app.core import tile_water
+
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
 # полуширина полосы вокруг линии реки в градусах (~ 300 м по широте)
@@ -70,8 +72,8 @@ def _load():
     _seg = _build_segments()
 
 
-def is_in_water(lat: float, lon: float) -> bool:
-    """True, если точка (lat, lon) попала на воду."""
+def _vector_water(lat: float, lon: float) -> bool:
+    """Только векторная проверка (полигоны и полосы рек/каналов)."""
     _load()
     for bbox, path in zip(_poly_bbox, _poly_paths):
         if not (bbox[0] <= lat <= bbox[1] and bbox[2] <= lon <= bbox[3]):
@@ -92,13 +94,35 @@ def is_in_water(lat: float, lon: float) -> bool:
     return False
 
 
+def is_in_water(lat: float, lon: float) -> bool:
+    """True, если точка (lat, lon) попала на воду.
+
+    Вода = векторная маска (полигоны + полосы) ИЛИ цвет OSM-тайла
+    (то, что реально видно на карте).
+    """
+    if _vector_water(lat, lon):
+        return True
+    vw = tile_water.visual_water(lat, lon)
+    return bool(vw) if vw is not None else False
+
+
+def is_wet_point(lat: float, lon: float) -> bool:
+    """Точка считается «мокрой», если она на воде или вплотную к ней
+    (в пределах ~1 пикселя маски/зума 13, т.е. ~10 м) — для генерации,
+    чтобы станции не «прилипали» к синей кромке на карте."""
+    if is_in_water(lat, lon):
+        return True
+    vn = tile_water.visual_water_neigh(lat, lon, radius=1)
+    return bool(vn) if vn is not None else False
+
+
 def nearest_land(lat: float, lon: float, max_r: float = 0.02):
     """Возвращает ближайшую сушу вокруг точки (lat, lon) или None, если не нашли.
 
     Поиск веером: концентрические кольца с 32 направлениями, засчитывается
     самая близкая сухая точка (по фактическому расстоянию в метрах ~).
     """
-    if not is_in_water(lat, lon):
+    if not is_wet_point(lat, lon):
         return float(lat), float(lon)
     coslat = math.cos(math.radians(lat))
     best = None
@@ -109,7 +133,8 @@ def nearest_land(lat: float, lon: float, max_r: float = 0.02):
             a = ang * (2 * math.pi / 32)
             clat = lat + r * math.sin(a) / coslat
             clon = lon + r * math.cos(a)
-            if not is_in_water(clat, clon):
+            # суша с запасом ~10 м от «синей кромки» карты
+            if not is_wet_point(clat, clon):
                 dx = (clat - lat) * coslat
                 dy = clon - lon
                 d2 = dx * dx + dy * dy
@@ -162,7 +187,7 @@ def random_land_point(rng: np.random.Generator, low, high, tries: int = 60):
     """
     for _ in range(tries):
         p = rng.uniform(low=low, high=high)
-        if is_in_water(float(p[0]), float(p[1])):
+        if is_wet_point(float(p[0]), float(p[1])):
             lp = nearest_land(float(p[0]), float(p[1]))
             if lp is None:
                 continue
@@ -180,10 +205,19 @@ def land_points_from(rng, low, high, count: int):
     out = []
     while len(out) < count:
         p = rng.uniform(low=low, high=high)
-        if is_in_water(float(p[0]), float(p[1])):
+        if is_wet_point(float(p[0]), float(p[1])):
             lp = nearest_land(float(p[0]), float(p[1]))
             if lp is None:
                 continue
             p = np.asarray(lp)
         out.append(p)
     return np.asarray(out, dtype=float)
+
+
+# прогрев кэша маски воды по цвету: при закешированном water_mask.npz это
+# мгновенно; в свежем окружении (без кэша и с сетью) один раз скачает тайлы.
+# Обёрнуто в try, чтобы отсутствие сети не роняло импорт.
+try:
+    tile_water.ensure_mask()
+except Exception:
+    pass

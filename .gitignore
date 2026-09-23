@@ -19,6 +19,9 @@ celerybeat-schedule
 celerybeat-schedule*
 celerybeat.pid
 
+# Скачанные тайлы OSM для маски воды (пересобираются fetch'ем; сама маска — в git)
+backend/app/data/tiles/
+
 # Сгенерированные графики и временные файлы
 backend/app/static/plots/
 versions/

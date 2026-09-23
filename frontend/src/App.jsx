@@ -1,4 +1,4 @@
-import React, { useState, Fragment } from "react";
+import React, { useState, Fragment, useEffect } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import MapView from "./components/MapView";
@@ -164,9 +164,37 @@ export default function App() {
   const chartVisible =
     showZones || showClusters || showClusterHeads || showBatteryHeads;
 
-  const topPolluted = [...stations]
-    .sort((a, b) => (b["PM_2_5"] ?? -1) - (a["PM_2_5"] ?? -1))
-    .slice(0, 8);
+  // ---- «Самые загрязнённые»: половина списка (8 → 4), ранжирование с учётом
+  // PM_2_5 + PM_10 (и флага превышения TLV), состав обновляется каждые 5 тиков
+  // (тик = опрос станций раз в 2 с, т.е. ~раз в 10 с) ----
+  const TOP_LIST_ROWS = 4; // половина от прежних 8
+  const REFRESH_EVERY_TICKS = 5;
+
+  const pollutionScore = (s) =>
+    (s.overTLV ? 1e6 : 0) + (s["PM_2_5"] ?? 0) + (s["PM_10"] ?? 0);
+
+  const [pollTick, setPollTick] = useState(0);
+  const [topIds, setTopIds] = useState([]);
+
+  useEffect(() => {
+    setPollTick((t) => t + 1);
+  }, [stations]);
+
+  useEffect(() => {
+    if (pollTick % REFRESH_EVERY_TICKS !== 0 && topIds.length > 0) return;
+    const ranked = [...stations]
+      .sort(
+        (a, b) =>
+          pollutionScore(b) - pollutionScore(a) ||
+          (b["PM_2_5"] ?? 0) - (a["PM_2_5"] ?? 0)
+      )
+      .slice(0, TOP_LIST_ROWS);
+    setTopIds(ranked.map((s) => s.id));
+  }, [pollTick, stations]);
+
+  const topPolluted = topIds
+    .map((id) => stations.find((s) => s.id === id))
+    .filter(Boolean);
 
   const typeName = (t) =>
     t === 0 ? "Стац." : t === 1 ? "Движ." : "Класт.";
@@ -294,7 +322,9 @@ export default function App() {
           </section>
 
           <section className="card">
-            <h2>Самые загрязнённые</h2>
+            <h2>
+              Самые загрязнённые · топ-{TOP_LIST_ROWS} (PM2.5+PM10, каждые {REFRESH_EVERY_TICKS} тиков)
+            </h2>
             <table>
               <thead>
                 <tr>
@@ -304,6 +334,7 @@ export default function App() {
                   <th>Лон</th>
                   <th>PM2.5</th>
                   <th>PM10</th>
+                  <th>TLV</th>
                 </tr>
               </thead>
               <tbody>
@@ -315,6 +346,7 @@ export default function App() {
                     <td>{s.longitude.toFixed(3)}</td>
                     <td>{s["PM_2_5"]}</td>
                     <td>{s["PM_10"]}</td>
+                    <td>{s.overTLV ? "⚠" : "—"}</td>
                   </tr>
                 ))}
               </tbody>

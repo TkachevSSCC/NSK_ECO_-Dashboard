@@ -27,7 +27,8 @@ async def metrics_loop():
             stations=stations,
             mode=mode,
             cluster_count=cluster_count, 
-            fake_pollutions=runtime_state["fake_pollutions"]
+            fake_pollutions=runtime_state["fake_pollutions"],
+            timezone_count=runtime_state.get("timezone_count", 0),
         )
 
         runtime_metrics.update({

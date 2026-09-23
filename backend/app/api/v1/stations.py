@@ -246,6 +246,8 @@ async def get_timezone_schedule(capacity: int = 10) -> JSONResponse:
         })
     
     runtime_state["stations_count"] = len(stations)
+    runtime_state["mode"] = "timezone"
+    runtime_state["timezone_count"] = num_zones
 
     return JSONResponse(content={"zones": zones})
 

@@ -18,7 +18,6 @@ export default function App() {
   const [pollId, setPollId] = useState(1);
   const [pollPM25, setPollPM25] = useState("40");
   const [pollPM10, setPollPM10] = useState("70");
-  const [pollTicks, setPollTicks] = useState(10);
   const [pollMsg, setPollMsg] = useState("");
   const [pollFormOpen, setPollFormOpen] = useState(false);
 
@@ -154,7 +153,7 @@ export default function App() {
     setPollMsg("Добавляю…");
     try {
       const res = await fetch(
-        `${BASE}/stations/${id}/pollute?pm25=${encodeURIComponent(p25)}&pm10=${encodeURIComponent(p10)}&ticks=${encodeURIComponent(pollTicks || 10)}`,
+        `${BASE}/stations/${id}/pollute?pm25=${encodeURIComponent(p25)}&pm10=${encodeURIComponent(p10)}`,
         { method: "POST" }
       );
       const data = await res.json();
@@ -395,15 +394,6 @@ export default function App() {
                   />
                 </div>
                 <div className="row">
-                  <span className="mode-label">Тиков</span>
-                  <input
-                    type="number"
-                    className="num-input"
-                    min="1"
-                    max="200"
-                    value={pollTicks}
-                    onChange={(e) => setPollTicks(e.target.value)}
-                  />
                   <button onClick={handleAddPollution}>Внести загрязнение</button>
                 </div>
               </>

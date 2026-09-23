@@ -298,10 +298,10 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
 
             if mode == "battery_life":
                 cluster_batteries = batteries[valid_mask]
-                sorted_idx = np.argsort(cluster_batteries)[::-1][:2]
+                sorted_idx = np.argsort(cluster_batteries)[::-1][:1]
             else:
                 dists = np.linalg.norm(cluster_points - kmeans.cluster_centers_[cluster_id], axis=1)
-                sorted_idx = np.argsort(dists)[:2]
+                sorted_idx = np.argsort(dists)[:1]
 
             selected_ids = cluster_ids[sorted_idx]
             selected_heads = cluster_points[sorted_idx]

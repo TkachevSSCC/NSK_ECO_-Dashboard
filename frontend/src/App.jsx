@@ -318,8 +318,8 @@ export default function App() {
               className={showBatteryHeads ? "active" : ""}
             >
               {showBatteryHeads
-                ? "Скрыть кластеры с батареями"
-                : "Показать кластеры с батареями"}
+                ? "Скрыть кластеры с питанием"
+                : "Показать кластеры с питанием"}
             </button>
           </div>
 

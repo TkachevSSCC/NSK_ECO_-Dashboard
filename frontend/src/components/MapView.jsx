@@ -56,7 +56,7 @@ export default function MapView({
           />
         ))}
 
-      {/* кластеры (обычные / с хедами / с батареями) */}
+      {/* кластеры (обычные / с хедами / с питанием) */}
       {(showClusters || showBatteryHeads || showClusterHeads) &&
         clusters?.polygons?.length > 0 &&
         clusters.polygons.map((cluster, i) => (

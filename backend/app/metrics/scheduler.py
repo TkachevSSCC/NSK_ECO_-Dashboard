@@ -7,6 +7,10 @@ from app.metrics.calculator import calculate_messages_per_second
 from app.metrics.runtime import runtime_metrics
 from app.state.runtime import runtime_state
 
+# размер одного сообщения в килобайтах
+GLOBAL_MSG_KB = 0.5  # сообщение в глобальную сеть
+ZONE_MSG_KB = 0.2  # сообщение в пределах зоны
+
 async def metrics_loop():
     while True:
         stations_raw = await StationService.find_all()
@@ -38,11 +42,11 @@ async def metrics_loop():
         zone_messages = max(0, len(stations) - mps) * 3
         runtime_metrics["total_zone_messages"] += zone_messages
 
-        # общий вес сообщений:
-        # 0.5 * сообщения в глобальную сеть + 0.2 * сообщения в пределах зоны
-        runtime_metrics["total_message_weight"] = (
-            0.5 * runtime_metrics["total_messages"]
-            + 0.2 * runtime_metrics["total_zone_messages"]
+        # общий вес сообщений (килобайты):
+        # 0.5 КБ * сообщения в глобальную сеть + 0.2 КБ * сообщения в зоне
+        runtime_metrics["total_message_weight_kb"] = (
+            GLOBAL_MSG_KB * runtime_metrics["total_messages"]
+            + ZONE_MSG_KB * runtime_metrics["total_zone_messages"]
         )
 
         runtime_metrics.update({

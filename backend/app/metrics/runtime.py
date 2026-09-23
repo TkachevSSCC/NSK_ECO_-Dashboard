@@ -5,6 +5,6 @@ runtime_metrics = {
     "messages_per_second": 0,
     "total_messages": 0,
     "total_zone_messages": 0,
-    "total_message_weight": 0.0,
+    "total_message_weight_kb": 0.0,
     "mode": None,
 }

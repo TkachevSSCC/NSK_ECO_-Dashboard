@@ -62,7 +62,7 @@ export default function MetricsChartOverlay({ visible }) {
                 className="legend-dot"
                 style={{ background: "#facc15" }}
               />{" "}
-              Не передают
+              Передают в пределах зоны
             </span>
           </div>
           <div className="chart-box">
@@ -104,7 +104,7 @@ export default function MetricsChartOverlay({ visible }) {
                   stroke="#facc15"
                   strokeWidth={2}
                   dot={false}
-                  name="Не передают"
+                  name="Передают в пределах зоны"
                 />
               </LineChart>
             </ResponsiveContainer>

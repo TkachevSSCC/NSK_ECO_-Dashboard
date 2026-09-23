@@ -55,7 +55,7 @@ export default function MetricsChartOverlay({ visible }) {
                 className="legend-dot"
                 style={{ background: "#38bdf8" }}
               />{" "}
-              Передают
+              Передают в глобальную сеть
             </span>
             <span>
               <i
@@ -96,7 +96,7 @@ export default function MetricsChartOverlay({ visible }) {
                   stroke="#38bdf8"
                   strokeWidth={2}
                   dot={false}
-                  name="Передают"
+                  name="Передают в глобальную сеть"
                 />
                 <Line
                   type="monotone"

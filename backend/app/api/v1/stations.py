@@ -254,7 +254,6 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
     coords = np.array([[s['latitude'], s['longitude']] for s in stations])
     station_ids = np.array([s['id'] for s in stations])
     batteries = np.array([s['battery_life'] for s in stations])
-    type_sts = np.array([s['type_st'] for s in stations])
 
     df = pd.DataFrame(coords, columns=['lat', 'lon'])
     num_clusters = int(coords.shape[0] // capacity) + 5
@@ -287,13 +286,15 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
 
 
         if mode:
-            # фильтруем только станции с type_st == 0
-            valid_mask = (kmeans.labels_ == cluster_id) & (type_sts == 1)
+            # кандидатом в хэд может быть ЛЮБАЯ станция кластера
+            # (стационарная, движущаяся или уже выбранный хэд) —
+            # так в каждом кластере гарантированно будет хэд
+            valid_mask = kmeans.labels_ == cluster_id
             cluster_points = coords[valid_mask]
             cluster_ids = station_ids[valid_mask]
 
             if len(cluster_points) == 0:
-                continue  # нет подходящих станций
+                continue  # пустой кластер — практически невозможно
 
             if mode == "battery_life":
                 cluster_batteries = batteries[valid_mask]

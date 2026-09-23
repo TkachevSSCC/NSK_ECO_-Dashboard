@@ -20,6 +20,7 @@ export default function App() {
   const [pollPM10, setPollPM10] = useState("70");
   const [pollTicks, setPollTicks] = useState(10);
   const [pollMsg, setPollMsg] = useState("");
+  const [pollFormOpen, setPollFormOpen] = useState(false);
 
   const [zones, setZones] = useState([]);
   const [showZones, setShowZones] = useState(false);
@@ -354,51 +355,60 @@ export default function App() {
               <button onClick={handlePollutionsMin}>Убрать загрязнения</button>
             </div>
 
-            <h3 className="table-title">Загрязнение станции</h3>
             <div className="row">
-              <span className="mode-label">Станция №</span>
-              <input
-                type="number"
-                className="num-input"
-                min="1"
-                value={pollId}
-                onChange={(e) => setPollId(e.target.value)}
-              />
+              <button onClick={() => setPollFormOpen(!pollFormOpen)}>
+                {pollFormOpen ? "Скрыть поля" : "Добавить загрязнение"}
+              </button>
             </div>
-            <div className="row">
-              <span className="mode-label">PM2.5</span>
-              <input
-                type="number"
-                className="num-input"
-                min="0"
-                max="500"
-                step="any"
-                value={pollPM25}
-                onChange={(e) => setPollPM25(e.target.value)}
-              />
-              <span className="mode-label">PM10</span>
-              <input
-                type="number"
-                className="num-input"
-                min="0"
-                max="500"
-                step="any"
-                value={pollPM10}
-                onChange={(e) => setPollPM10(e.target.value)}
-              />
-            </div>
-            <div className="row">
-              <span className="mode-label">Тиков</span>
-              <input
-                type="number"
-                className="num-input"
-                min="1"
-                max="200"
-                value={pollTicks}
-                onChange={(e) => setPollTicks(e.target.value)}
-              />
-              <button onClick={handleAddPollution}>Добавить</button>
-            </div>
+            {pollFormOpen && (
+              <>
+                <h3 className="table-title">Загрязнение станции</h3>
+                <div className="row">
+                  <span className="mode-label">Станция №</span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="1"
+                    value={pollId}
+                    onChange={(e) => setPollId(e.target.value)}
+                  />
+                </div>
+                <div className="row">
+                  <span className="mode-label">PM2.5</span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="0"
+                    max="500"
+                    step="any"
+                    value={pollPM25}
+                    onChange={(e) => setPollPM25(e.target.value)}
+                  />
+                  <span className="mode-label">PM10</span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="0"
+                    max="500"
+                    step="any"
+                    value={pollPM10}
+                    onChange={(e) => setPollPM10(e.target.value)}
+                  />
+                </div>
+                <div className="row">
+                  <span className="mode-label">Тиков</span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="1"
+                    max="200"
+                    value={pollTicks}
+                    onChange={(e) => setPollTicks(e.target.value)}
+                  />
+                  <button onClick={handleAddPollution}>Внести загрязнение</button>
+                </div>
+              </>
+            )}
             {pollMsg && <div className="count-msg">{pollMsg}</div>}
           </section>
 

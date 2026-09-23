@@ -16,6 +16,7 @@ export default function StationMarker({ station, highlighted = false }) {
   const pm25 = Number(station["PM_2_5"]);
   const isStationary = station.type_st === 0;
   const isMoving = station.type_st === 1;
+  const isClusterHead = station.type_st === 2;
 
   return (
     <>
@@ -36,8 +37,9 @@ export default function StationMarker({ station, highlighted = false }) {
         center={[station.latitude, station.longitude]}
         radius={isStationary ? 7 : isMoving ? 5 : 9}
         pathOptions={{
-          color: highlighted ? "#f8fafc" : "#e2e8f0",
-          weight: highlighted ? 2.5 : 1,
+          // рамка кластер-хэда — чёрная
+          color: isClusterHead ? "#000000" : highlighted ? "#f8fafc" : "#e2e8f0",
+          weight: highlighted ? 2.5 : isClusterHead ? 2 : 1,
           fillColor: levelColor(pm25),
           fillOpacity: isMoving ? 0.55 : 0.9,
         }}

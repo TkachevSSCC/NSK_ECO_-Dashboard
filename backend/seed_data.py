@@ -57,7 +57,7 @@ async def seed():
                 StationBehavior(
                     station_id=idx,
                     radius=0.0015,
-                    speed=0.5,
+                    speed=2.5,
                     progress=0.0,
                 )
             )

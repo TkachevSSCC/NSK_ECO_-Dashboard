@@ -86,7 +86,7 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
                 StationBehavior(
                     station_id=idx,
                     radius=0.0015,
-                    speed=0.5,
+                    speed=2.5,
                     progress=0.0,
                 )
             )

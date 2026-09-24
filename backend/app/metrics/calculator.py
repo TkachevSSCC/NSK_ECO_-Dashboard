@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 # порог критического превышения: PM2.5 + PM10 суммарно
@@ -5,19 +7,48 @@ DANGER_SUM_THRESHOLD = 200
 # каждый временный кластер = узел + 3 ближайших = 4 устройства,
 # каждое передаёт по сообщению в глобальную сеть
 DANGER_CLUSTER_MESSAGES = 4
+# временный кластер существует 60 секунд с момента первого превышения
+DANGER_CLUSTER_TTL_SECONDS = 60
+
+# когда каждый узел впервые превысил порог (монотонные часы)
+_danger_since: dict[int, float] = {}
+# узлы, чей 60-секундный кластер уже «отгорел», но уровень всё ещё выше
+# порога: новый временный кластер не перезаводится, пока уровень не упадёт
+_danger_expired: set[int] = set()
 
 
 def count_danger_clusters(stations: list[dict]) -> int:
     """
-    Число временных кластеров: станций с суммой PM2.5 + PM10 > 200.
-    Каждый такой узел образует временный кластер (узел + 3 ближайших).
+    Число активных временных кластеров: станций с суммой PM2.5 + PM10 > 200.
+    Каждый временный кластер существует 60 секунд с момента первого
+    превышения, затем исчезает и не перезаводится, пока уровень станции
+    не опустится ниже порога (новое событие запускает новый кластер).
     """
+    now = time.monotonic()
     n = 0
     for s in stations:
+        sid = s["id"]
         pm25 = float(s.get("PM_2_5") or 0)
         pm10 = float(s.get("PM_10") or 0)
-        if pm25 + pm10 > DANGER_SUM_THRESHOLD:
+        if pm25 + pm10 <= DANGER_SUM_THRESHOLD:
+            # превышение закончилось — состояние узла сбрасываем
+            _danger_since.pop(sid, None)
+            _danger_expired.discard(sid)
+            continue
+        if sid in _danger_expired:
+            # 60 секунд уже прошли, уровень всё ещё высокий:
+            # кластер не перезаводится до нового события
+            continue
+        started = _danger_since.get(sid)
+        if started is None:
+            _danger_since[sid] = now
             n += 1
+        elif now - started <= DANGER_CLUSTER_TTL_SECONDS:
+            n += 1
+        else:
+            # время жизни кластера истекло
+            _danger_since.pop(sid, None)
+            _danger_expired.add(sid)
     return n
 
 

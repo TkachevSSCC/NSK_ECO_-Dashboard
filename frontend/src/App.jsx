@@ -326,16 +326,38 @@ export default function App() {
 
   // ---- всплывающие предупреждения о критическом превышении PM2.5 + PM10 ----
   const EXCEED_SUM_THRESHOLD = 200; // суммарно более 200
+  const DANGER_CLUSTER_TTL_MS = 60000; // временный кластер существует 60 секунд
   const [alerts, setAlerts] = useState([]);
   const [dangerZones, setDangerZones] = useState([]);
   const alertedIdsRef = useRef(new Set());
+  // момент первого превышения (Time.now) и узлы, чей 60-секундный кластер
+  // уже отгорел: не перезаводится, пока уровень не упадёт ниже порога
+  const dangerSinceRef = useRef({});
+  const dangerExpiredRef = useRef(new Set());
 
   useEffect(() => {
-    const exceed = stations.filter(
-      (s) =>
-        (Number(s["PM_2_5"]) || 0) + (Number(s["PM_10"]) || 0) >
-        EXCEED_SUM_THRESHOLD
-    );
+    // временный кластер существует 60 секунд с момента первого превышения:
+    // после истечения он исчезает и НЕ перезаводится, пока сумма не упадёт
+    // ниже порога (новое событие запускает новый кластер)
+    const nowMs = Date.now();
+    const activeDanger = stations.filter((s) => {
+      const sum = (Number(s["PM_2_5"]) || 0) + (Number(s["PM_10"]) || 0);
+      const sid = s.id;
+      if (sum <= EXCEED_SUM_THRESHOLD) {
+        delete dangerSinceRef.current[sid];
+        dangerExpiredRef.current.delete(sid);
+        return false;
+      }
+      if (dangerExpiredRef.current.has(sid)) return false;
+      if (!(sid in dangerSinceRef.current)) dangerSinceRef.current[sid] = nowMs;
+      if (nowMs - dangerSinceRef.current[sid] > DANGER_CLUSTER_TTL_MS) {
+        delete dangerSinceRef.current[sid];
+        dangerExpiredRef.current.add(sid);
+        return false;
+      }
+      return true;
+    });
+    const exceed = activeDanger;
     const exceedIds = new Set(exceed.map((s) => s.id));
 
     // станции, опустившиеся ниже порога, снимаем с «блокировки» —

@@ -1,5 +1,5 @@
 import React from "react";
-import { MapContainer, TileLayer, Polygon, Rectangle } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, Rectangle, Circle, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import StationMarker from "./StationMarker";
 
@@ -18,6 +18,7 @@ export default function MapView({
   showClusterHeads,
   showBatteryHeads,
   highlightIds = [],
+  dangerZones = [],
 }) {
   return (
     <MapContainer
@@ -74,6 +75,28 @@ export default function MapView({
             }}
           />
         ))}
+    {/* «тревожные кластеры» вокруг узлов с критическим превышением PM2.5+PM10 */}
+      {dangerZones.map((dz) => (
+        <Circle
+          key={dz.id}
+          center={[dz.latitude, dz.longitude]}
+          radius={dz.radius}
+          pathOptions={{
+            color: "#ef4444",
+            weight: 2,
+            fillColor: "#ef4444",
+            fillOpacity: 0.25,
+            dashArray: "8 6",
+          }}
+        >
+          <Tooltip sticky>
+            Узел №{dz.id} · координаты: {dz.latitude.toFixed(5)},{" "}
+            {dz.longitude.toFixed(5)}
+            <br />
+            PM2.5 = {dz.pm25}, PM10 = {dz.pm10} (сумма = {dz.sum})
+          </Tooltip>
+        </Circle>
+      ))}
     </MapContainer>
   );
 }

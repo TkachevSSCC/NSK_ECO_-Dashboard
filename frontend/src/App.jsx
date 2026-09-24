@@ -313,6 +313,7 @@ export default function App() {
   // ---- всплывающие предупреждения о критическом превышении PM2.5 + PM10 ----
   const EXCEED_SUM_THRESHOLD = 150; // суммарно более 150
   const [alerts, setAlerts] = useState([]);
+  const [dangerZones, setDangerZones] = useState([]);
   const alertedIdsRef = useRef(new Set());
 
   useEffect(() => {
@@ -345,6 +346,26 @@ export default function App() {
         setAlerts((prev) => prev.filter((a) => a.id !== s.id));
       }, 10000);
     }
+
+    // «тревожный кластер» вокруг каждого узла с критическим превышением:
+    // радиус растёт с серьёзностью превышения (150 -> ~1.5 км, потолок 6 км)
+    setDangerZones(
+      exceed.map((s) => {
+        const sum = (Number(s["PM_2_5"]) || 0) + (Number(s["PM_10"]) || 0);
+        return {
+          id: s.id,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          sum,
+          pm25: s["PM_2_5"],
+          pm10: s["PM_10"],
+          radius: Math.min(
+            1500 + (sum - EXCEED_SUM_THRESHOLD) * 12,
+            6000
+          ),
+        };
+      })
+    );
   }, [stations]);
 
   const typeName = (t) =>
@@ -412,6 +433,7 @@ export default function App() {
               showClusterHeads={showClusterHeads}
               showBatteryHeads={showBatteryHeads}
               highlightIds={highlightIds}
+              dangerZones={dangerZones}
             />
           </div>
 

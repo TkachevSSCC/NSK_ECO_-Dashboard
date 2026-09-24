@@ -38,8 +38,11 @@ export default function MapView({
         />
       ))}
 
-      {/* таймзоны */}
+      {/* таймзоны — скрыты, когда активен любой режим кластеров */}
       {showZones &&
+        !showClusters &&
+        !showClusterHeads &&
+        !showBatteryHeads &&
         zones.map((zone, i) => (
           <Rectangle
             key={i}

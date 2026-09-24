@@ -68,6 +68,9 @@ export default function App() {
     } else {
       setShowClusterHeads(false);
       setShowBatteryHeads(false);
+      // кластеры и таймзоны одновременно не показываем
+      setShowZones(false);
+      setZones([]);
       const response = await fetch(`${BASE}/stations/plot/cluster`);
       const data = await response.json();
       setClusters(data);
@@ -89,6 +92,8 @@ export default function App() {
       clearHighlights();
       await resetOverlays();
     } else {
+      setShowZones(false);
+      setZones([]);
       const response = await fetch(`${BASE}/stations/plot/cluster?mode=head`);
       const data = await response.json();
       setClusters(data);
@@ -110,6 +115,8 @@ export default function App() {
       clearHighlights();
       await resetOverlays();
     } else {
+      setShowZones(false);
+      setZones([]);
       const response = await fetch(
         `${BASE}/stations/plot/cluster?mode=battery_life`
       );
@@ -124,6 +131,13 @@ export default function App() {
       setShowZones(false);
       clearHighlights();
     } else {
+      // таймзоны и кластеры одновременно не показываем
+      setShowClusters(false);
+      setShowClusterHeads(false);
+      setShowBatteryHeads(false);
+      setClusters(null);
+      clearHighlights();
+      await resetOverlays();
       const response = await fetch(`${BASE}/stations/plot/timezone`);
       const data = await response.json();
       setZones(data.zones || []);

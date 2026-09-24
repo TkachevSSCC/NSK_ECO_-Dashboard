@@ -50,6 +50,23 @@ async def reset_cluster_heads():
             rc.hdel(POLLUTION_OVERRIDE_KEY, str(sid))
     return JSONResponse(content={"status": "ok", "updated_stations": len(reset_ids)})
 
+@router.post("/transmit_all")
+async def set_transmit_all(enabled: bool = True):
+    """
+    Режим «передают все»: все станции передают в глобальную сеть
+    (mode="clusters" -> mps = числу станций). enabled=False — никто
+    не передаёт в сеть (mode="").
+    """
+    if enabled:
+        runtime_state["mode"] = "clusters"
+        runtime_state["cluster_count"] = 0
+        runtime_state["cluster_variant"] = None
+        runtime_state.pop("cluster_centroids", None)
+        runtime_state.pop("cluster_radii", None)
+    else:
+        runtime_state["mode"] = ""
+    return JSONResponse(content={"status": "ok", "mode": runtime_state["mode"]})
+
 @router.post("/set_count")
 async def set_stations_count(count: int = 100, moving_count: int | None = None):
     """

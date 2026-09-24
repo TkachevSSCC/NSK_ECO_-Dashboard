@@ -29,6 +29,8 @@ export default function App() {
   const [showBatteryHeads, setShowBatteryHeads] = useState(false);
 
   const [clusters, setClusters] = useState(null);
+  // «передают все»: все станции передают в глобальную сеть (mode="clusters")
+  const [allTransmit, setAllTransmit] = useState(false);
 
   // подсветка устройств и раскрытые строки таблицы зон/кластеров
   const [highlightIds, setHighlightIds] = useState([]);
@@ -71,6 +73,7 @@ export default function App() {
       // кластеры и таймзоны одновременно не показываем
       setShowZones(false);
       setZones([]);
+      setAllTransmit(false);
       const response = await fetch(`${BASE}/stations/plot/cluster`);
       const data = await response.json();
       setClusters(data);
@@ -94,6 +97,7 @@ export default function App() {
     } else {
       setShowZones(false);
       setZones([]);
+      setAllTransmit(false);
       const response = await fetch(`${BASE}/stations/plot/cluster?mode=head`);
       const data = await response.json();
       setClusters(data);
@@ -117,6 +121,7 @@ export default function App() {
     } else {
       setShowZones(false);
       setZones([]);
+      setAllTransmit(false);
       const response = await fetch(
         `${BASE}/stations/plot/cluster?mode=battery_life`
       );
@@ -137,11 +142,24 @@ export default function App() {
       setShowBatteryHeads(false);
       setClusters(null);
       clearHighlights();
+      setAllTransmit(false);
       await resetOverlays();
       const response = await fetch(`${BASE}/stations/plot/timezone`);
       const data = await response.json();
       setZones(data.zones || []);
       setShowZones(true);
+    }
+  };
+
+  const handleToggleAllTransmit = async () => {
+    const next = !allTransmit;
+    setAllTransmit(next);
+    try {
+      await fetch(`${BASE}/stations/transmit_all?enabled=${next}`, {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Ошибка переключения режима «передают все»:", err);
     }
   };
 
@@ -334,6 +352,12 @@ export default function App() {
               {showBatteryHeads
                 ? "Скрыть кластеры с питанием"
                 : "Показать кластеры с питанием"}
+            </button>
+            <button
+              onClick={handleToggleAllTransmit}
+              className={allTransmit ? "active" : ""}
+            >
+              Передают все
             </button>
           </div>
 

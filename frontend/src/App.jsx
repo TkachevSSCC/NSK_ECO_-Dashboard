@@ -7,6 +7,20 @@ import { useStations } from "./hooks/useStations";
 
 const BASE = "http://127.0.0.1:8000";
 
+// расстояние между узлами по гаверсинусу, км
+function haversineKm(a, b) {
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
 export default function App() {
   const stations = useStations();
 
@@ -311,7 +325,7 @@ export default function App() {
     .filter(Boolean);
 
   // ---- всплывающие предупреждения о критическом превышении PM2.5 + PM10 ----
-  const EXCEED_SUM_THRESHOLD = 150; // суммарно более 150
+  const EXCEED_SUM_THRESHOLD = 200; // суммарно более 200
   const [alerts, setAlerts] = useState([]);
   const [dangerZones, setDangerZones] = useState([]);
   const alertedIdsRef = useRef(new Set());
@@ -347,11 +361,25 @@ export default function App() {
       }, 10000);
     }
 
-    // «тревожный кластер» вокруг каждого узла с критическим превышением:
-    // радиус растёт с серьёзностью превышения (150 -> ~1.5 км, потолок 6 км)
+    // временный кластер вокруг каждого узла с критическим превышением:
+    // сам узел + 3 ближайших соседа, радиус покрывает крайнего из них
     setDangerZones(
       exceed.map((s) => {
         const sum = (Number(s["PM_2_5"]) || 0) + (Number(s["PM_10"]) || 0);
+        const nearest = stations
+          .filter((o) => o.id !== s.id)
+          .map((o) => ({
+            id: o.id,
+            latitude: o.latitude,
+            longitude: o.longitude,
+            distKm: haversineKm(s, o),
+          }))
+          .sort((a, b) => a.distKm - b.distKm)
+          .slice(0, 3);
+        const members = [s.id, ...nearest.map((o) => o.id)];
+        const farKm =
+          nearest.length > 0 ? nearest[nearest.length - 1].distKm : 0;
+        const radius = Math.min(Math.max(1200, (farKm + 0.4) * 1000), 8000);
         return {
           id: s.id,
           latitude: s.latitude,
@@ -359,10 +387,9 @@ export default function App() {
           sum,
           pm25: s["PM_2_5"],
           pm10: s["PM_10"],
-          radius: Math.min(
-            1500 + (sum - EXCEED_SUM_THRESHOLD) * 12,
-            6000
-          ),
+          members,
+          nearest,
+          radius,
         };
       })
     );
@@ -724,6 +751,7 @@ export default function App() {
                   <thead>
                     <tr>
                       <th>Узел</th>
+                      <th>Состав (узел + 3 ближ.)</th>
                       <th>Координаты</th>
                       <th>PM2.5</th>
                       <th>PM10</th>
@@ -736,9 +764,16 @@ export default function App() {
                       <tr
                         key={dz.id}
                         className="clickable danger-row"
-                        onClick={() => toggleHighlight([dz.id])}
+                        onClick={() => toggleHighlight(dz.members)}
                       >
                         <td>№{dz.id}</td>
+                        <td className="member-list">
+                          {dz.members.map((id) => (
+                            <span key={id} className="chip">
+                              #{id}
+                            </span>
+                          ))}
+                        </td>
                         <td>
                           {dz.latitude.toFixed(5)}, {dz.longitude.toFixed(5)}
                         </td>

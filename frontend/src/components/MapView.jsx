@@ -94,6 +94,8 @@ export default function MapView({
             {dz.longitude.toFixed(5)}
             <br />
             PM2.5 = {dz.pm25}, PM10 = {dz.pm10} (сумма = {dz.sum})
+            <br />
+            В кластере: {dz.members.map((m) => `№${m}`).join(", ")}
           </Tooltip>
         </Circle>
       ))}

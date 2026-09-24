@@ -272,7 +272,11 @@ export default function App() {
   };
 
   const chartVisible =
-    showZones || showClusters || showClusterHeads || showBatteryHeads;
+    showZones ||
+    showClusters ||
+    showClusterHeads ||
+    showBatteryHeads ||
+    allTransmit;
 
   // ---- «Самые загрязнённые»: половина списка (8 → 4), ранжирование с учётом
   // PM_2_5 + PM_10 (и флага превышения TLV), состав обновляется каждые 5 тиков

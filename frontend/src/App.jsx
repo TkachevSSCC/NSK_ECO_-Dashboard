@@ -715,7 +715,46 @@ export default function App() {
                 </>
               )}
 
-            {!showZones &&
+            {dangerZones.length > 0 && (
+              <>
+                <h3 className="table-title">
+                  Временные кластеры (критическое превышение PM2.5 + PM10)
+                </h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Узел</th>
+                      <th>Координаты</th>
+                      <th>PM2.5</th>
+                      <th>PM10</th>
+                      <th>Сумма</th>
+                      <th>Радиус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dangerZones.map((dz) => (
+                      <tr
+                        key={dz.id}
+                        className="clickable danger-row"
+                        onClick={() => toggleHighlight([dz.id])}
+                      >
+                        <td>№{dz.id}</td>
+                        <td>
+                          {dz.latitude.toFixed(5)}, {dz.longitude.toFixed(5)}
+                        </td>
+                        <td>{dz.pm25}</td>
+                        <td>{dz.pm10}</td>
+                        <td>{dz.sum}</td>
+                        <td>{(dz.radius / 1000).toFixed(1)} км</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            {dangerZones.length === 0 &&
+              !showZones &&
               !showClusters &&
               !showClusterHeads &&
               !showBatteryHeads && (

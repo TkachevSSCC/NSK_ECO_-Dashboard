@@ -369,6 +369,15 @@ td:first-child {
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* строка временного кластера в панели «Состав зон и кластеров» */
+.danger-row td {
+  color: #fda4af;
+}
+
+.danger-row:hover td {
+  color: #ffffff;
+}
+
 /* ===== Модалка ===== */
 .modal-overlay {
   position: fixed;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -14,6 +14,11 @@ export default function MetricsChartOverlay({ visible }) {
   const [totalMessages, setTotalMessages] = useState(0);
   const [totalWeight, setTotalWeight] = useState(0);
 
+  // база отсчёта при обновлении страницы (сброс на фронте,
+  // без влияния на другие вкладки): фиксируем серверные
+  // накопительные значения в момент загрузки и вычитаем их
+  const baselineRef = useRef(null);
+
   useEffect(() => {
     if (!visible) return;
 
@@ -21,8 +26,24 @@ export default function MetricsChartOverlay({ visible }) {
 
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      setTotalMessages(msg.total_messages ?? 0);
-      setTotalWeight(msg.total_message_weight_kb ?? 0);
+
+      // первый кадр после обновления страницы — точка отсчёта.
+      // Все последующие счётчики показываем относительно неё,
+      // т.е. при каждом обновлении страницы обнуляются
+      // «всего передано сообщений» и «общий вес сообщений».
+      if (baselineRef.current === null) {
+        baselineRef.current = {
+          messages: msg.total_messages ?? 0,
+          weight: msg.total_message_weight_kb ?? 0,
+        };
+      }
+
+      const base = baselineRef.current;
+      setTotalMessages(Math.max(0, (msg.total_messages ?? 0) - base.messages));
+      setTotalWeight(
+        Math.max(0, (msg.total_message_weight_kb ?? 0) - base.weight)
+      );
+
       setData((prev) => [
         ...prev.slice(-100), // ~2 минуты (40 * 3 сек)
         {

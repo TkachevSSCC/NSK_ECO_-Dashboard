@@ -9,15 +9,6 @@ router = APIRouter()
 async def metrics_ws(ws: WebSocket):
     await ws.accept()
 
-    # при обновлении страницы открывается новое подключение —
-    # обнуляем накопительные счётчики (вес и количество сообщений)
-    for key in (
-        "total_messages",
-        "total_zone_messages",
-        "total_message_weight_kb",
-    ):
-        runtime_metrics[key] = 0
-
     try:
         while True:
             await ws.send_json(runtime_metrics)

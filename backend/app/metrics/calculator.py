@@ -75,8 +75,9 @@ def calculate_messages_per_second(
         return timezone_count + danger_cluster_count * DANGER_CLUSTER_MESSAGES
 
     if mode == "clusters":
-        # «передают все» — все станции уже в сети, повторно не считаем
-        return len(stations)
+        # «передают все» — все станции передают, плюс каждый временный
+        # кластер дополнительно передаёт 4 сообщения в глобальную сеть
+        return len(stations) + danger_cluster_count * DANGER_CLUSTER_MESSAGES
 
     if mode == "cluster_head":
         # в глобальную сеть передают: кластер-хэды (по одному на кластер)

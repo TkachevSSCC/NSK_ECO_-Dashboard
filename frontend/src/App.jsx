@@ -1,4 +1,4 @@
-import React, { useState, Fragment, useEffect } from "react";
+import React, { useState, Fragment, useEffect, useRef } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import MapView from "./components/MapView";
@@ -309,6 +309,43 @@ export default function App() {
   const topPolluted = topIds
     .map((id) => stations.find((s) => s.id === id))
     .filter(Boolean);
+
+  // ---- всплывающие предупреждения о критическом превышении PM2.5 + PM10 ----
+  const EXCEED_SUM_THRESHOLD = 150; // суммарно более 150
+  const [alerts, setAlerts] = useState([]);
+  const alertedIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    const exceed = stations.filter(
+      (s) =>
+        (Number(s["PM_2_5"]) || 0) + (Number(s["PM_10"]) || 0) >
+        EXCEED_SUM_THRESHOLD
+    );
+    const exceedIds = new Set(exceed.map((s) => s.id));
+
+    // станции, опустившиеся ниже порога, снимаем с «блокировки» —
+    // при новом превышении предупреждение снова сработает
+    for (const id of alertedIdsRef.current) {
+      if (!exceedIds.has(id)) alertedIdsRef.current.delete(id);
+    }
+
+    for (const s of exceed) {
+      if (alertedIdsRef.current.has(s.id)) continue;
+      alertedIdsRef.current.add(s.id);
+      const alert = {
+        id: s.id,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        pm25: s["PM_2_5"],
+        pm10: s["PM_10"],
+      };
+      setAlerts((prev) => [...prev.filter((a) => a.id !== s.id), alert]);
+      // автоскрытие через 10 секунд
+      setTimeout(() => {
+        setAlerts((prev) => prev.filter((a) => a.id !== s.id));
+      }, 10000);
+    }
+  }, [stations]);
 
   const typeName = (t) =>
     t === 0 ? "Стац." : t === 1 ? "Движ." : "Класт.";
@@ -668,6 +705,35 @@ export default function App() {
           </section>
         </div>
       </main>
+
+      {/* всплывающие предупреждения о критическом превышении PM2.5 + PM10 */}
+      {alerts.length > 0 && (
+        <div className="toast-stack">
+          {alerts.map((a) => (
+            <div key={a.id} className="toast">
+              <button
+                className="toast-close"
+                onClick={() =>
+                  setAlerts((prev) => prev.filter((x) => x.id !== a.id))
+                }
+              >
+                ✕
+              </button>
+              <div className="toast-title">
+                ⚠ Критическое превышение PM2.5 + PM10
+              </div>
+              <div>
+                Узел №{a.id} · координаты: {a.latitude.toFixed(5)},{" "}
+                {a.longitude.toFixed(5)}
+              </div>
+              <div className="toast-detail">
+                PM2.5 = {a.pm25}, PM10 = {a.pm10} (сумма ={" "}
+                {(Number(a.pm25) || 0) + (Number(a.pm10) || 0)})
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -24,12 +24,10 @@ export default function MapView({
     <MapContainer
       center={[54.8676586, 83.082019]}
       zoom={10}
+      attributionControl={false}
       style={{ height: "100%", width: "100%" }}
     >
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
       {stations.map((station) => (
         <StationMarker

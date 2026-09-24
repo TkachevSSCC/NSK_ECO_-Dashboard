@@ -5,7 +5,7 @@ import MapView from "./components/MapView";
 import MetricsChartOverlay from "./components/MetricsChartOverlay";
 import { useStations } from "./hooks/useStations";
 
-const BASE = "http://127.0.0.1:8000";
+const BASE = "";
 
 // расстояние между узлами по гаверсинусу, км
 function haversineKm(a, b) {

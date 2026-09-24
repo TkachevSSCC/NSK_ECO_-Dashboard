@@ -22,7 +22,9 @@ export default function MetricsChartOverlay({ visible }) {
   useEffect(() => {
     if (!visible) return;
 
-    const ws = new WebSocket("ws://127.0.0.1:8000/ws/metrics");
+    const ws = new WebSocket(
+      `${location.protocol === "https:" ? "wss://" : "ws://"}${location.host}/ws/metrics`
+    );
 
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -58,12 +60,10 @@ export default function MetricsChartOverlay({ visible }) {
   }, [visible]);
 
   // вторая (жёлтая) линия — все устройства, которые сейчас не передают:
-  // общее количество устройств минус текущее значение.
-  // Всегда не меньше 1, чтобы «Передают в пределах зоны» не обнулялось
-  // даже когда в сеть передают больше устройств, чем всего станций
+  // общее количество устройств минус текущее значение. Не ниже 0.
   const chartData = data.map((d) => ({
     ...d,
-    free: Math.max(1, (d.total ?? 0) - d.value),
+    free: Math.max(0, (d.total ?? 0) - d.value),
   }));
 
   return (

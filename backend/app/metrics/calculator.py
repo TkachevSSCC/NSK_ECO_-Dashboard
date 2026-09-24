@@ -1,5 +1,23 @@
 import numpy as np
 
+# порог критического превышения: PM2.5 + PM10 суммарно
+DANGER_SUM_THRESHOLD = 200
+
+
+def count_danger_clusters(stations: list[dict]) -> int:
+    """
+    Число временных кластеров: станций с суммой PM2.5 + PM10 > 200.
+    Каждый такой узел образует временный кластер (узел + 3 ближайших)
+    и передаёт сообщение в глобальную сеть.
+    """
+    n = 0
+    for s in stations:
+        pm25 = float(s.get("PM_2_5") or 0)
+        pm10 = float(s.get("PM_10") or 0)
+        if pm25 + pm10 > DANGER_SUM_THRESHOLD:
+            n += 1
+    return n
+
 
 def count_out_of_cluster(
     stations: list[dict],
@@ -45,20 +63,25 @@ def calculate_messages_per_second(
     timezone_count: int = 0,
     cluster_centroids: list[list[float]] | None = None,
     cluster_radii: list[float] | None = None,
+    danger_cluster_count: int = 0,
 ) -> int:
 
     if mode == "timezone":
         # в режиме тайм-зон сообщения передают не все станции,
-        # а только зоны — сообщений столько же, сколько тайм-зон
-        return timezone_count
+        # а только зоны — сообщений столько же, сколько тайм-зон;
+        # временные кластеры передают в сеть дополнительно
+        return timezone_count + danger_cluster_count
 
     if mode == "clusters":
+        # «передают все» — все станции уже в сети, повторно не считаем
         return len(stations)
 
     if mode == "cluster_head":
         # в глобальную сеть передают: кластер-хэды (по одному на кластер)
-        # плюс устройства, вышедшие за пределы своего кластера
+        # плюс устройства, вышедшие за пределы своего кластера,
+        # плюс временные кластеры
         out = count_out_of_cluster(stations, cluster_centroids, cluster_radii)
-        return cluster_count + out
+        return cluster_count + out + danger_cluster_count
 
-    return 0
+    # без оверлея в сеть передают только временные кластеры
+    return danger_cluster_count

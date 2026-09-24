@@ -4,7 +4,11 @@ from datetime import datetime
 
 from app.services.station_service import StationService
 from app.services.cluster_service import recluster
-from app.metrics.calculator import calculate_messages_per_second, count_out_of_cluster
+from app.metrics.calculator import (
+    calculate_messages_per_second,
+    count_out_of_cluster,
+    count_danger_clusters,
+)
 from app.metrics.runtime import runtime_metrics
 from app.state.runtime import runtime_state
 
@@ -41,6 +45,8 @@ async def metrics_loop():
                 "id": s.id,
                 "latitude": s.latitude,
                 "longitude": s.longitude,
+                "PM_2_5": s.PM_2_5,
+                "PM_10": s.PM_10,
                 "overTLV": s.overTLV,
                 "type_st": s.type_st,
             }
@@ -51,6 +57,10 @@ async def metrics_loop():
 
         cluster_count = runtime_state["cluster_count"]
 
+        # временные кластеры (станции с суммой PM2.5+PM10 > 200) передают
+        # сообщение в глобальную сеть дополнительно к основному режиму
+        danger_cluster_count = count_danger_clusters(stations)
+
         mps = calculate_messages_per_second(
             stations=stations,
             mode=mode,
@@ -59,6 +69,7 @@ async def metrics_loop():
             timezone_count=runtime_state.get("timezone_count", 0),
             cluster_centroids=runtime_state.get("cluster_centroids"),
             cluster_radii=runtime_state.get("cluster_radii"),
+            danger_cluster_count=danger_cluster_count,
         )
 
         # ---- лимит: mps (в глобальную сеть) > кластер-хэды + half moving ----
@@ -100,7 +111,8 @@ async def metrics_loop():
             "timestamp": datetime.utcnow().isoformat(),
             "messages_per_second": mps,
             "mode": mode,
-            "stations_count": len(stations)
+            "stations_count": len(stations),
+            "danger_cluster_count": danger_cluster_count,
         })
 
         await asyncio.sleep(3)

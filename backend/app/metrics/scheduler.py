@@ -96,8 +96,9 @@ async def metrics_loop():
         # накапливаем общее количество переданных сообщений (тик = 3 сек)
         runtime_metrics["total_messages"] += mps * 3
 
-        # сообщения в пределах зоны: устройства, которые не передают в сеть
-        zone_messages = max(0, len(stations) - mps) * 3
+        # сообщения в пределах зоны: устройства, которые не передают в сеть.
+        # Всегда не меньше 1 — «передают в пределах зоны» не опускается до нуля
+        zone_messages = max(1, len(stations) - mps) * 3
         runtime_metrics["total_zone_messages"] += zone_messages
 
         # общий вес сообщений (килобайты):

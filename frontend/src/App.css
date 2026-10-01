@@ -864,3 +864,8 @@ button:disabled:hover {
   opacity: 0.5;
   cursor: default;
 }
+
+/* режим «добавить устройство»: курсор-прицел на карте вместо руки */
+.leaflet-container.placing-device {
+  cursor: crosshair;
+}

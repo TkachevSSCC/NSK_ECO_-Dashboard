@@ -488,6 +488,99 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
         content={"status": "ok", "stations_count": count, "moving_count": moving_count}
     )
 
+@router.post("/add")
+async def add_station(
+    latitude: float,
+    longitude: float,
+    type_st: int = 0,
+    battery: float = FULL_BATTERY_PCT,
+    pm25: float | None = None,
+    pm10: float | None = None,
+):
+    """Добавляет одно устройство в указанную точку (клик по карте).
+
+    type_st: 0 — стационарное, 1 — движущееся (создаётся с параметрами
+    траектории, как в /set_count). pm25/pm10 — стартовые концентрации,
+    по умолчанию — случайные фоновые значения. Существующие станции
+    и их id не затрагиваются: новое устройство получает следующий id.
+    """
+    if latitude != latitude or longitude != longitude:  # NaN
+        return JSONResponse(
+            status_code=422,
+            content={"status": "error", "message": "Некорректные координаты"},
+        )
+    if not (-90.0 <= latitude <= 90.0) or not (-180.0 <= longitude <= 180.0):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "error",
+                "message": "Координаты вне допустимого диапазона",
+            },
+        )
+    type_st = 1 if int(type_st) == 1 else 0
+    battery = round(max(0.0, min(float(battery), FULL_BATTERY_PCT)), 2)
+    pm25 = (
+        round(float(pm25), 2)
+        if pm25 is not None
+        else round(uniform(0.5, 10.0), 2)
+    )
+    pm10 = (
+        round(float(pm10), 2)
+        if pm10 is not None
+        else round(uniform(0.5, 12.0), 2)
+    )
+    over_tlv = int(pm25 > 25 or pm10 > 50)
+
+    async with async_session_maker() as session:
+        max_id = (
+            await session.execute(
+                text("SELECT COALESCE(MAX(id), 0) FROM stations")
+            )
+        ).scalar_one()
+        new_id = int(max_id) + 1
+        session.add(
+            Stations(
+                id=new_id,
+                type_st=type_st,
+                battery_life=battery,
+                latitude=latitude,
+                longitude=longitude,
+                PM_2_5=pm25,
+                PM_10=pm10,
+                overTLV=over_tlv,
+            )
+        )
+        # движущемуся устройству нужна траектория (те же параметры,
+        # что у станций из /set_count)
+        if type_st == 1:
+            session.add(
+                StationBehavior(
+                    station_id=new_id,
+                    radius=round(float(uniform(0.0006, 0.0035)), 6),
+                    speed=round(float(uniform(3.2, 16.0)), 2),
+                    progress=round(float(uniform(0.0, 11.99)), 2),
+                )
+            )
+        await session.commit()
+
+    # сбрасываем кеш маршрутов, чтобы новое движущееся устройство
+    # сразу получило траекторию
+    reset_movement_state()
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "station_id": new_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "type_st": type_st,
+            "battery_life": battery,
+            "PM_2_5": pm25,
+            "PM_10": pm10,
+            "overTLV": over_tlv,
+        }
+    )
+
 @router.get("")
 async def get_stations() -> list[Station]:
     return await StationService.find_all()

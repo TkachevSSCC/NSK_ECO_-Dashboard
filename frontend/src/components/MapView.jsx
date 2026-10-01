@@ -10,6 +10,7 @@ import {
   ImageOverlay,
   Tooltip,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import StationMarker from "./StationMarker";
@@ -54,6 +55,37 @@ function MapMetricsControl({ weightPerSecond }) {
   return null;
 }
 
+// Ловец кликов в режиме «добавить устройство»: монтируется только когда
+// включено добавление, поэтому обычные клики по карте ничего не делают.
+function MapClickCatcher({ onAddDevice }) {
+  const map = useMap();
+
+  // курсор-прицел, пока идёт режим размещения
+  React.useEffect(() => {
+    const host = map.getContainer();
+    host.classList.add("placing-device");
+    return () => host.classList.remove("placing-device");
+  }, [map]);
+
+  useMapEvents({
+    click(e) {
+      if (!onAddDevice) return;
+      // клик по маркеру/кругу/зоне не должен ставить устройство поверх него
+      const target = e.originalEvent?.target;
+      if (
+        target &&
+        typeof target.closest === "function" &&
+        target.closest(".leaflet-interactive")
+      ) {
+        return;
+      }
+      onAddDevice(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
 export default function MapView({
   stations,
   zones,
@@ -68,6 +100,7 @@ export default function MapView({
   heatmapBounds = null,
   installSites = [],
   weightPerSecond = 0,
+  onAddDevice = null,
 }) {
   // станции с нулевым зарядом не передают и не показываются на карте
   const liveStations = stations.filter((s) => (s.battery_life ?? 0) > 0);
@@ -88,6 +121,7 @@ export default function MapView({
     >
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <MapMetricsControl weightPerSecond={weightPerSecond} />
+      {onAddDevice && <MapClickCatcher onAddDevice={onAddDevice} />}
 
       {heatmapImage && heatmapBounds && (
         <ImageOverlay

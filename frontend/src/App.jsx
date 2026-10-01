@@ -145,6 +145,13 @@ export default function App() {
   // При загрузке страницы режим включается автоматически
   const [allTransmit, setAllTransmit] = useState(true);
 
+  // добавление устройства кликом по карте: addPhase — режим размещения,
+  // addType — тип (0 стационарное, 1 движущееся)
+  const [addPhase, setAddPhase] = useState(false);
+  const [addType, setAddType] = useState(0);
+  const [addMsg, setAddMsg] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const enable = async () => {
@@ -295,6 +302,55 @@ export default function App() {
       addEvent("err", "Ошибка переключения режима «передают все»");
     }
   };
+
+  // размещение нового устройства в точке клика по карте
+  const handleAddDevice = useCallback(
+    async (lat, lng) => {
+      if (!addPhase || addBusy) return;
+      setAddBusy(true);
+      const typeLabel = addType === 1 ? "движущееся" : "стационарное";
+      try {
+        const res = await fetch(
+          `${BASE}/stations/add?latitude=${lat}&longitude=${lng}&type_st=${addType}`,
+          { method: "POST" }
+        );
+        const data = await res.json();
+        if (!res.ok || data.status === "error") {
+          setAddMsg(
+            data.message || `Ошибка добавления устройства (код ${res.status})`
+          );
+          addEvent("err", "Ошибка добавления устройства");
+          return;
+        }
+        setAddMsg(
+          `Добавлено устройство №${data.station_id}: ${data.latitude.toFixed(
+            5
+          )}, ${data.longitude.toFixed(5)} (${typeLabel})`
+        );
+        addEvent(
+          "act",
+          `Добавлено устройство №${data.station_id}: ${data.latitude.toFixed(
+            5
+          )}, ${data.longitude.toFixed(5)} (${typeLabel})`
+        );
+        // состав изменился — таймзоны/кластеры на карте устарели
+        setShowZones(false);
+        setShowClusters(false);
+        setShowClusterHeads(false);
+        setShowBatteryHeads(false);
+        setZones([]);
+        setClusters(null);
+        clearHighlights();
+      } catch (err) {
+        console.error("Ошибка добавления устройства:", err);
+        setAddMsg("Не удалось добавить устройство");
+        addEvent("err", "Ошибка добавления устройства");
+      } finally {
+        setAddBusy(false);
+      }
+    },
+    [addPhase, addBusy, addType, addEvent]
+  );
 
   const handleToggleHeatmap = async () => {
     if (showHeatmap) {
@@ -759,7 +815,36 @@ export default function App() {
               >
                 {showHeatmap ? "Скрыть тепловую карту" : "Тепловая карта"}
               </button>
+              <button
+                onClick={() => {
+                  setAddPhase((p) => !p);
+                  setAddMsg("");
+                }}
+                className={addPhase ? "active" : ""}
+              >
+                {addPhase ? "Отменить добавление" : "Добавить устройство"}
+              </button>
             </div>
+
+            {addPhase && (
+              <div className="row add-device-bar">
+                <span className="mode-label">Тип устройства:</span>
+                <button
+                  className={addType === 0 ? "active" : ""}
+                  onClick={() => setAddType(0)}
+                >
+                  Стационарное
+                </button>
+                <button
+                  className={addType === 1 ? "active" : ""}
+                  onClick={() => setAddType(1)}
+                >
+                  Движущееся
+                </button>
+                <span className="dim-note">→ кликните по карте</span>
+              </div>
+            )}
+            {addMsg && <div className="count-msg">{addMsg}</div>}
 
             <div id="map">
               <MapView
@@ -776,6 +861,7 @@ export default function App() {
                 heatmapBounds={showHeatmap ? heatmapBounds : null}
                 installSites={showHeatmap ? installSites : []}
                 weightPerSecond={weightPerSecond}
+                onAddDevice={addPhase ? handleAddDevice : null}
               />
             </div>
 

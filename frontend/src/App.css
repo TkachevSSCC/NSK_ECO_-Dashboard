@@ -2,22 +2,32 @@
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  /* шапка закреплена сверху: при прокрутке длинного отчёта о событиях
+     заголовок и счётчик станций остаются на виду */
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  box-shadow: var(--sh-1);
 }
 
 header .logo {
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
 }
 
 header h1 {
-  font-size: 17px;
+  font-size: 16px;
   margin: 0;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
+  /* длинный заголовок не должен ломать шапку на узком экране */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #status {
@@ -26,7 +36,8 @@ header h1 {
   color: var(--dim);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
+  white-space: nowrap;
 }
 
 @keyframes pulse {
@@ -47,60 +58,95 @@ header h1 {
 main.dash {
   display: grid;
   grid-template-columns: minmax(420px, 5fr) minmax(380px, 4fr);
-  gap: 14px;
-  padding: 14px;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
   align-items: start;
+  /* ширина ограничена: на очень широком мониторе строки отчёта о
+     событиях растягиваются на два экрана и их невозможно читать */
+  max-width: 1760px;
+  margin: 0 auto;
+}
+
+/* на экране поуже две колонки уже не помещаются — складываем в одну.
+   Порог выше 1100px, потому что при 1100 две колонки по 420+380 плюс
+   отступы и поля уже не влезают и появляется горизонтальная прокрутка */
+@media (max-width: 1100px) {
+  main.dash {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* колонка с картой и отчётом: без обёртки карта и отчёт стали бы
    отдельными ячейками грида и сдвинули .side на строку ниже */
 .main-col {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
   align-content: start;
+  /* без min-width:0 колонка с картой не даёт сжаться и выдавливает
+     соседнюю за пределы экрана */
   min-width: 0;
 }
 
 .side {
   display: grid;
-  gap: 14px;
+  gap: var(--sp-4);
   align-content: start;
+  min-width: 0;
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  /* карточка чуть светлее фона — без этого плоская панель сливается с
+     общим фоном и границы секций не читаются */
+  box-shadow: var(--sh-1);
 }
 
 .card h2 {
-  font-size: 13px;
-  margin: 0 0 10px;
+  font-size: 12px;
+  margin: 0 0 var(--sp-3);
   color: var(--acc);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-weight: 700;
 }
 
 .card h2.card-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
   cursor: pointer;
   user-select: none;
-  margin-bottom: 0;
+  /* заголовок раскрываемой карточки должен занимать всю ширину: иначе
+     клик по пустому месту справа от текста ничего не делает. Отрицательные
+     поля сверху и по бокам выносят его к самому краю карточки — тогда
+     подсветка при наведении идёт во всю ширину, как у заголовка окна,
+     а снизу остаётся обычный отступ до содержимого */
+  /* ширину не задаём: блочный flex сам занимает всю доступную ширину минус
+     поля, а отрицательные поля сверху и по бокам добавляют к ней 2×отступ
+     карточки. С width:100% заголовок остался бы уже карточки на 32px */
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  transition: background var(--t-fast), color var(--t-fast);
 }
 
 .card h2.card-toggle:hover {
-  color: var(--acc);
-  opacity: 0.85;
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.07);
 }
 
 .card h2.card-toggle .chev {
   font-size: 11px;
-  transition: transform 0.15s ease;
+  transition: transform var(--t-base);
+  color: var(--dim);
+}
+
+.card h2.card-toggle:hover .chev {
+  color: var(--acc);
 }
 
 .card h2.card-toggle .chev.open {
@@ -111,10 +157,12 @@ main.dash {
 #map {
   height: 62vh;
   min-height: 460px;
-  background: #0b1220;
-  border-radius: 8px;
+  background: var(--sunken);
+  border-radius: var(--r-md);
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: var(--sp-3);
+  /* рамка отделяет карту от текста карточки и даёт ей чёткую границу */
+  border: 1px solid var(--line);
 }
 
 #map .leaflet-container {
@@ -128,8 +176,11 @@ main.dash {
   color: var(--text);
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  border-radius: var(--r-sm);
+  /* размытие подложки: счётчик остаётся читаемым поверх светлых
+     участков карты, но не превращается в мутное пятно */
+  backdrop-filter: blur(4px);
+  box-shadow: var(--sh-2);
   pointer-events: none;
 }
 
@@ -144,7 +195,7 @@ main.dash {
 .map-metrics-value {
   margin-top: 3px;
   color: var(--text);
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 16px;
   font-weight: 700;
 }
@@ -158,14 +209,15 @@ main.dash {
 /* ===== Кнопки / селекты ===== */
 .row {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: var(--sp-3);
+  align-items: center;
 }
 
 .mode-row {
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
   align-items: center;
 }
 
@@ -177,26 +229,42 @@ main.dash {
 
 button,
 select {
-  background: #0b1220;
+  background: var(--sunken);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  padding: 7px 13px;
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  transition: border-color var(--t-base), background var(--t-base),
+    color var(--t-base), transform var(--t-fast);
 }
 
-button:hover {
+/* наведение меняет не только рамку: иначе кнопка «отзывается» только
+   цветом, и на тёмном фоне это читается слабо */
+button:hover:not(:disabled) {
   border-color: var(--acc);
+  background: rgba(56, 189, 248, 0.1);
+  color: #e0f2fe;
+}
+
+/* нажатие даёт физическое ощущение: кнопка слегка «уходит» */
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 button.active {
   background: var(--acc);
   border-color: var(--acc);
-  color: #0b1220;
+  color: #06121f;
   font-weight: 600;
+}
+
+button.active:hover:not(:disabled) {
+  background: #7dd3fc;
+  border-color: #7dd3fc;
+  color: #06121f;
 }
 
 select {
@@ -204,14 +272,29 @@ select {
 }
 
 .num-input {
-  background: #0b1220;
+  background: var(--sunken);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 7px 10px;
   font-size: 13px;
-  font-family: inherit;
+  font-family: var(--mono);
   width: 90px;
+}
+
+/* стрелки вверх/вниз у number-полей убираем: в тёмной теме они рисуются
+   чёрным по чёрному, плюс занимают место и выглядят как артефакт.
+   Раньше колесо мыши всё равно меняло значение. */
+.num-input::-webkit-outer-spin-button,
+.num-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.num-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .num-input:focus {
@@ -222,26 +305,34 @@ select {
 .count-msg {
   font-size: 12px;
   color: var(--acc);
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   padding: 6px 10px;
   background: rgba(56, 189, 248, 0.08);
   border: 1px dashed var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 
 /* ===== Таблица ===== */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: var(--sp-3);
   font-size: 12.5px;
+  /* таблицы со ста вкладками зоны растягивают всю карточку; ограничиваем
+     ширину и даём им собственный скролл по вертикали */
+  table-layout: auto;
 }
 
 th,
 td {
   text-align: left;
-  padding: 5px 8px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--line);
+}
+
+/* последняя строка без рамки: иначе под таблицей остаётся висящая линия */
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 th {
@@ -250,6 +341,11 @@ th {
   text-transform: uppercase;
   font-size: 10.5px;
   letter-spacing: 0.06em;
+  /* подчёркиваем шапку таблицы: при прокрутке длинных списков зон и
+     кластеров без липкой шапки колонки теряются. Липкость (position:
+     sticky) здесь не годится — прокручивается вся страница, и шапка
+     уезжала бы под закреплённую шапку сайта. */
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
 td {
@@ -302,10 +398,11 @@ tr.highlighted td {
   margin: 2px 3px 2px 0;
   padding: 1px 7px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: rgba(30, 41, 59, 0.7);
   color: var(--text);
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 
 /* хэд зоны/кластера в составе и в списке устройств */
@@ -336,10 +433,42 @@ button:disabled:hover {
 /* ===== Отчёт о событиях ===== */
 .event-log .ev-time {
   color: var(--dim);
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 11.5px;
   white-space: nowrap;
   width: 1%;
+}
+
+/* отчёт о событиях растёт на сотни строк: даём ему свою высоту и скролл,
+   иначе он растягивает страницу и выталкивает остальные карточки вниз.
+   Ограничение и overflow висят на обёртке div, а не на самой таблице:
+   к <table> overflow не применяется, правило молча игнорировалось бы */
+.event-log {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* отступ под липкой шапкой идёт от границы обёртки, поэтому первая
+   строка не прилипает к шапке таблицы вплотную */
+.event-log table {
+  margin-top: 0;
+}
+
+.event-log thead th {
+  /* липкая шапка внутри прокручиваемого блока: колонки «Время» и
+     «Событие» остаются видны при прокрутке вниз */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.event-log tr {
+  transition: background var(--t-fast);
+}
+
+.event-log tbody tr:hover {
+  background: rgba(56, 189, 248, 0.05);
 }
 
 .event-log .ev-text {
@@ -445,7 +574,7 @@ button:disabled:hover {
 
 .install-table td:nth-child(2) {
   white-space: nowrap;
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 11px;
 }
 
@@ -453,8 +582,11 @@ button:disabled:hover {
 .chart-box {
   width: 100%;
   height: 240px;
-  background: #0b1220;
-  border-radius: 8px;
+  background: var(--sunken);
+  /* рамка и скругление отделяют график от карточки: без них тёмная
+     область сливается с фоном панели */
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 6px;
 }
 
@@ -474,7 +606,7 @@ button:disabled:hover {
 
 .total-row b {
   color: var(--acc);
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 15px;
 }
 
@@ -507,7 +639,13 @@ button:disabled:hover {
 .buffer-fill {
   height: 100%;
   background: var(--acc);
-  transition: width 0.3s ease;
+  transition: width var(--t-base) ease;
+}
+
+/* полоса меняет цвет по мере наполнения, чтобы приближение
+   к переполнению было видно ещё до самой границы */
+.buffer-fill.warn {
+  background: #fbbf24;
 }
 
 .buffer-fill.overflow {
@@ -517,9 +655,9 @@ button:disabled:hover {
 .dim-note {
   color: var(--dim);
   font-size: 13px;
-  background: #0b1220;
-  border-radius: 8px;
-  padding: 14px;
+  background: var(--sunken);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
   margin: 0;
   border: 1px dashed var(--line);
 }
@@ -828,7 +966,7 @@ button:disabled:hover {
 }
 
 .scenario-bar-value {
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   text-align: right;
   white-space: nowrap;
@@ -845,7 +983,7 @@ button:disabled:hover {
 
 .scenario-figs b {
   color: var(--text);
-  font-family: "JetBrains Mono", Consolas, monospace;
+  font-family: var(--mono);
 }
 
 .btn-recalc {

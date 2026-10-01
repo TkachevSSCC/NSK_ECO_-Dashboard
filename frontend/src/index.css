@@ -6,6 +6,40 @@
   --dim: #94a3b8;
   --acc: #38bdf8;
 
+  /* затемнённый фон ввода/графика — на тон ниже панели */
+  --sunken: #0b1220;
+  /* приподнятая поверхность поверх --sunken (строки, поля) */
+  --raised: #111c33;
+  /* полупрозрачная подложка под текстом */
+  --veil: rgba(15, 23, 42, 0.5);
+
+  /* тени: одна для приподнятых панелей, вторая для наложений */
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --sh-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* шкала отступов — кратно 2px, чтобы вертикальный ритм был ровным */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+
+  /* скругления: чем крупнее площадь, тем больше радиус */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* длительность всех переходов — одна, чтобы анимации не разъезжались */
+  --t-fast: 120ms;
+  --t-base: 200ms;
+
+  /* моноширинный шрифт для чисел — объявлен один раз, дальше только
+     var(--mono): раньше он повторялся по файлам и разъезжался */
+  --mono: "JetBrains Mono", ui-monospace, Consolas, "Cascadia Mono", monospace;
+
+  /* кольцо фокуса с клавиатуры */
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--acc);
+
   font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -43,4 +77,62 @@ a {
 }
 a:hover {
   color: #7dd3fc;
+}
+
+/* Фокус с клавиатуры виден всегда: без него нельзя ходить по кнопкам
+   и полям, не потеряв текущий элемент. Мышиный фокус не подсвечиваем —
+   иначе рамка появляется под курсором при каждом клике. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-sm);
+}
+
+/* Полосы прокрутки: в тёмной теме стандартная светлая полоса
+   выглядит как чужое окно поверх панели. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--acc);
+}
+
+/* Числа в полях и таблицах выравниваем по правому краю с табличными
+   цифрами: иначе разряды «прыгают» при обновлении раз в секунду. */
+.num-input,
+.install-table td,
+.scenario-figs b,
+.total-row b,
+.scenario-bar-value,
+table td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Уважаем системную настройку «уменьшить движение»: пульс в шапке и
+   проигрывание заполнения буфера — декорация, а не информация. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

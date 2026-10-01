@@ -218,7 +218,13 @@ export default function MetricsChartOverlay({
               <div className="buffer-bar">
                 <div
                   className={
-                    buffer.overflow ? "buffer-fill overflow" : "buffer-fill"
+                    // цвет полосы ведёт к границе заполнения: жёлтый
+                    // на последних процентах, красный — при переполнении
+                    buffer.overflow
+                      ? "buffer-fill overflow"
+                      : buffer.fill >= 80
+                        ? "buffer-fill warn"
+                        : "buffer-fill"
                   }
                   style={{ width: `${Math.min(100, buffer.fill)}%` }}
                 />

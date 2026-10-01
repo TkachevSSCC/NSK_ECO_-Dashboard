@@ -107,24 +107,28 @@ export default function EventLog({ events, onClear }) {
           {events.length === 0 ? (
             <p className="dim-note">Событий пока не было.</p>
           ) : (
-            <table className="event-log">
-              <thead>
-                <tr>
-                  <th>Время</th>
-                  <th>Событие</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((e) => (
-                  <tr key={e.key} className={`ev-${e.kind}`}>
-                    <td className="ev-time">
-                      {timeFmt.format(new Date(e.at))}
-                    </td>
-                    <td className="ev-text">{e.text}</td>
+            // обёртка нужна именно потому, что таблица не может быть
+            // прокручиваемым блоком: overflow на <table> не применяется
+            <div className="event-log">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Время</th>
+                    <th>Событие</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {events.map((e) => (
+                    <tr key={e.key} className={`ev-${e.kind}`}>
+                      <td className="ev-time">
+                        {timeFmt.format(new Date(e.at))}
+                      </td>
+                      <td className="ev-text">{e.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}

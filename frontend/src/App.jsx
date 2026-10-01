@@ -504,6 +504,31 @@ export default function App() {
     }
   };
 
+  const handleChargeAll = async () => {
+    setCountMsg("Заряжаю батареи всех устройств…");
+    try {
+      const res = await fetch(`${BASE}/stations/charge_battery`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setCountMsg(data.message || "Ошибка зарядки батарей");
+        return;
+      }
+      setCountMsg(
+        `Батареи заряжены до ${data.battery_life}%: ${data.stations_count} устройств`
+      );
+      addEvent(
+        "act",
+        `Батареи всех устройств заряжены до ${data.battery_life}%`
+      );
+    } catch (err) {
+      console.error("Ошибка зарядки батарей:", err);
+      setCountMsg("Не удалось зарядить батареи");
+      addEvent("err", "Ошибка зарядки батарей");
+    }
+  };
+
   const handleAddPollution = async () => {
     const id = parseInt(pollId, 10);
     if (!Number.isFinite(id) || id <= 0) {
@@ -1224,6 +1249,9 @@ export default function App() {
                 )}
                 <div className="row">
                   <button onClick={handlePollutionsMin}>Сброс значений</button>
+                </div>
+                <div className="row">
+                  <button onClick={handleChargeAll}>Зарядить все батареи</button>
                 </div>
 
                 <div className="row">

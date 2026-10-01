@@ -774,36 +774,7 @@ export default function App() {
               >
                 {showHeatmap ? "Скрыть тепловую карту" : "Тепловая карта"}
               </button>
-              <button
-                onClick={() => {
-                  setAddPhase((p) => !p);
-                  setAddMsg("");
-                }}
-                className={addPhase ? "active" : ""}
-              >
-                {addPhase ? "Отменить добавление" : "Добавить устройство"}
-              </button>
             </div>
-
-            {addPhase && (
-              <div className="row add-device-bar">
-                <span className="mode-label">Тип устройства:</span>
-                <button
-                  className={addType === 0 ? "active" : ""}
-                  onClick={() => setAddType(0)}
-                >
-                  Стационарное
-                </button>
-                <button
-                  className={addType === 1 ? "active" : ""}
-                  onClick={() => setAddType(1)}
-                >
-                  Движущееся
-                </button>
-                <span className="dim-note">→ кликните по карте</span>
-              </div>
-            )}
-            {addMsg && <div className="count-msg">{addMsg}</div>}
 
             <div id="map">
               <MapView
@@ -955,6 +926,42 @@ export default function App() {
                   </span>
                 </div>
                 {countMsg && <div className="count-msg">{countMsg}</div>}
+                <div className="row">
+                  <button
+                    onClick={() => {
+                      setAddPhase((p) => !p);
+                      setAddMsg("");
+                    }}
+                    className={addPhase ? "active" : ""}
+                  >
+                    {addPhase
+                      ? "Отменить добавление"
+                      : "Добавить устройство на карту"}
+                  </button>
+                  <span className="dim-note">
+                    {addPhase
+                      ? "→ кликните по карте"
+                      : "размещение по клику на карте"}
+                  </span>
+                </div>
+                {addPhase && (
+                  <div className="row">
+                    <span className="mode-label">Тип устройства:</span>
+                    <button
+                      className={addType === 0 ? "active" : ""}
+                      onClick={() => setAddType(0)}
+                    >
+                      Стационарное
+                    </button>
+                    <button
+                      className={addType === 1 ? "active" : ""}
+                      onClick={() => setAddType(1)}
+                    >
+                      Движущееся
+                    </button>
+                  </div>
+                )}
+                {addMsg && <div className="count-msg">{addMsg}</div>}
                 <div className="row">
                   <span className="mode-label">Объём буфера, КБ:</span>
                   <input

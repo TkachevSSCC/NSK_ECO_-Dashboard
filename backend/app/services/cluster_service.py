@@ -65,6 +65,64 @@ def _pick_head(cluster_id, kmeans, coords, station_ids, batteries, type_sts, var
     return cluster_ids[sorted_idx], cluster_points[sorted_idx]
 
 
+def preview_cluster_layout(
+    stations: list[dict], capacity: int = 10
+) -> dict | None:
+    """Расклад кластеров «всухую»: только считает, ничего не меняя.
+
+    Нужен для честной оценки режима «кластеры с хэдами», когда кластеры
+    ещё не построены. Без центроидов устройства, вышедшие за пределы
+    кластера, посчитать нельзя, и оценка получалась заниженной — преимущество
+    кластерного режима выглядело лучше, чем на самом деле.
+
+    В отличие от recluster не пишет в runtime_state, не меняет типы станций
+    и не трогает redis: это прогноз, а не переключение режима.
+
+    num_clusters повторяет формулу recluster, а радиусы считаются так же,
+    поэтому результат совпадает с настоящей кластеризацией.
+    """
+    if not stations:
+        return None
+
+    coords = np.array([[s["latitude"], s["longitude"]] for s in stations], dtype=float)
+    num_clusters = int(coords.shape[0] // capacity) + 5
+    # KMeans требует меньше точек, чем кластеров; иначе он падает
+    num_clusters = max(1, min(num_clusters, coords.shape[0]))
+
+    kmeans = KMeans(n_clusters=num_clusters, random_state=0).fit(
+        pd.DataFrame(coords, columns=["lat", "lon"])
+    )
+
+    radii = np.zeros(num_clusters)
+    for c in range(num_clusters):
+        cp = coords[kmeans.labels_ == c]
+        if len(cp):
+            radii[c] = float(
+                np.linalg.norm(cp - kmeans.cluster_centers_[c], axis=1).max()
+            )
+
+    # Хэды — ближайшие к центроиду, тем же способом, что выбирает _pick_head
+    # для variant="head". Без них оценка режима «кластеры с хэдами» была бы
+    # не согласованной: число сообщений считалось по будущим хэдам, а расход
+    # заряда — по тем, кто хэдами станет только после включения режима.
+    head_ids = []
+    for c in range(num_clusters):
+        members = np.where(kmeans.labels_ == c)[0]
+        if len(members) == 0:
+            continue
+        dists = np.linalg.norm(
+            coords[members] - kmeans.cluster_centers_[c], axis=1
+        )
+        head_ids.append(int(stations[members[int(np.argmin(dists))]]["id"]))
+
+    return {
+        "cluster_count": int(num_clusters),
+        "centroids": kmeans.cluster_centers_.tolist(),
+        "radii": radii.tolist(),
+        "head_ids": head_ids,
+    }
+
+
 async def recluster(capacity: int = 10, variant: str | None = None) -> dict:
     """
     Перестраивает кластеры и пересчитывает кластер-хэды.
@@ -138,6 +196,7 @@ async def recluster(capacity: int = 10, variant: str | None = None) -> dict:
         runtime_state["mode"] = "cluster_head"
         runtime_state["cluster_count"] = len(polygons)
         runtime_state["cluster_variant"] = variant
+        runtime_state.pop("timezone_zone_heads", None)
         # центроиды и радиусы — для метрики «в глобальную сеть»:
         # сообщения = кластеры + устройства, вышедшие за пределы кластера
         runtime_state["cluster_centroids"] = kmeans.cluster_centers_.tolist()
@@ -154,15 +213,22 @@ async def recluster(capacity: int = 10, variant: str | None = None) -> dict:
         runtime_state["stations_count"] = len(stations)
         runtime_state["cluster_variant"] = None
 
-    # состав каждого кластера: какие устройства в него входят
+    # состав каждого кластера: какие устройства в него входят,
+    # и его хэд (в режиме без хэдов — None)
+    head_by_cluster = {
+        entry["cluster_id"]: [h["id"] for h in entry["heads"]]
+        for entry in cluster_heads
+    }
     members = []
     for cluster_id in range(num_clusters):
         mask = kmeans.labels_ == cluster_id
         cl_ids = [int(sid) for sid in station_ids[mask]]
+        cluster_head_ids = head_by_cluster.get(cluster_id, [])
         members.append({
             "cluster_id": int(cluster_id),
             "count": len(cl_ids),
             "stations": cl_ids,
+            "head": cluster_head_ids[0] if cluster_head_ids else None,
         })
 
     return {"polygons": polygons, "heads": cluster_heads, "members": members}

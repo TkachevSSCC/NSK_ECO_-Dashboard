@@ -1,5 +1,6 @@
 /*
- * Модуль для загрузки станций с сервера каждые 2 секунды useStations.js
+ * Модуль для загрузки станций с сервера каждую секунду useStations.js
+ * (интервал совпадает с тиком метрик на бэкенде — TICK_SECONDS = 1)
  */
 
 //Импорт модулей
@@ -23,7 +24,7 @@ export const useStations = () => {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 2000);
+    const interval = setInterval(fetchData, 1000);
 
     return () => clearInterval(interval);
   }, []);

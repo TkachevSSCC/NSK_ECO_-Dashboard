@@ -1,4 +1,7 @@
+import asyncio
 from random import uniform
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.future import select
 from app.db.models.station import Stations
 from app.services.base import BaseService
@@ -8,6 +11,53 @@ from app.db.models.station import Stations
 
 class StationService(BaseService):
     model = Stations
+
+    @classmethod
+    async def drain_battery(cls, drains: dict[int, float]) -> int:
+        """
+        Списывает заряд батареи за тик: drains — процент заряда для каждой
+        станции (у каждой своё значение из-за разброса). Заряд не опускается
+        ниже нуля. Возвращает количество устройств, у которых списан заряд.
+        """
+        drains = {int(sid): float(drain) for sid, drain in drains.items()}
+        if not drains:
+            return 0
+
+        # строки обновляем строго по возрастанию id: списание идёт одновременно
+        # с обновлением станций, и если обе транзакции берут строки в одном
+        # порядке, PostgreSQL не ловит взаимную блокировку (deadlock)
+        values = ", ".join(
+            f"({sid}, {drains[sid]:.4f})" for sid in sorted(drains)
+        )
+        stmt = text(
+            "UPDATE stations SET battery_life = GREATEST(battery_life - d.drain, 0) "
+            f"FROM (VALUES {values}) AS d(id, drain) WHERE stations.id = d.id"
+        )
+        for attempt in range(3):
+            try:
+                async with async_session_maker() as session:
+                    await session.execute(stmt)
+                    await session.commit()
+                return len(drains)
+            except DBAPIError as exc:
+                # 40001 — deadlock detected, 40P01 — deadlock (asyncpg)
+                code = getattr(getattr(exc, "orig", None), "sqlstate", "") or ""
+                if code not in ("40001", "40P01") or attempt == 2:
+                    raise
+                await asyncio.sleep(0.2 * (attempt + 1))
+        return 0
+
+    @classmethod
+    async def reset_all_battery(cls, charge: float = 100.0) -> int:
+        """Заряжает все станции до charge процентов. Возвращает их количество."""
+        async with async_session_maker() as session:
+            result = await session.execute(select(Stations))
+            stations = result.scalars().all()
+            for st in stations:
+                st.battery_life = charge
+                session.add(st)
+            await session.commit()
+        return len(stations)
 
     @classmethod
     async def update_type(cls, station_id: int):

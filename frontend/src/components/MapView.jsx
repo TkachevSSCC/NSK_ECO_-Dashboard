@@ -1,5 +1,16 @@
 import React from "react";
-import { MapContainer, TileLayer, Polygon, Rectangle, Circle, Tooltip } from "react-leaflet";
+import L from "leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Polygon,
+  Rectangle,
+  Circle,
+  CircleMarker,
+  ImageOverlay,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import StationMarker from "./StationMarker";
 
@@ -8,6 +19,40 @@ const clusterColors = [
   "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
   "#bcbd22", "#17becf",
 ];
+
+function MapMetricsControl({ weightPerSecond }) {
+  const map = useMap();
+  const valueRef = React.useRef(null);
+
+  // Панель создаётся один раз: пересоздавать control на каждом тике нельзя,
+  // иначе он дёргается и пересоздаёт DOM. Значение обновляем точечно.
+  React.useEffect(() => {
+    const control = L.control({ position: "topright" });
+    const element = L.DomUtil.create("div", "map-metrics-control");
+    element.innerHTML = `
+      <div class="map-metrics-title">Глобальная сеть</div>
+      <div class="map-metrics-value">0,00 КБ/с</div>
+      <div class="map-metrics-caption">вес сообщений в секунду</div>
+    `;
+    valueRef.current = element.querySelector(".map-metrics-value");
+    control.onAdd = () => element;
+    control.addTo(map);
+    return () => {
+      valueRef.current = null;
+      control.remove();
+    };
+  }, [map]);
+
+  React.useEffect(() => {
+    const value = Number(weightPerSecond || 0).toLocaleString("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (valueRef.current) valueRef.current.textContent = `${value} КБ/с`;
+  }, [weightPerSecond]);
+
+  return null;
+}
 
 export default function MapView({
   stations,
@@ -19,7 +64,21 @@ export default function MapView({
   showBatteryHeads,
   highlightIds = [],
   dangerZones = [],
+  heatmapImage = null,
+  heatmapBounds = null,
+  installSites = [],
+  weightPerSecond = 0,
 }) {
+  // станции с нулевым зарядом не передают и не показываются на карте
+  const liveStations = stations.filter((s) => (s.battery_life ?? 0) > 0);
+
+  // Set вместо includes: список подсвеченных узлов проверяется для каждой
+  // станции на каждом тике, а includes на массиве даёт O(n) на узел
+  const highlighted = React.useMemo(
+    () => new Set(highlightIds),
+    [highlightIds]
+  );
+
   return (
     <MapContainer
       center={[54.8676586, 83.082019]}
@@ -28,13 +87,45 @@ export default function MapView({
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <MapMetricsControl weightPerSecond={weightPerSecond} />
 
-      {stations.map((station) => (
+      {heatmapImage && heatmapBounds && (
+        <ImageOverlay
+          url={heatmapImage}
+          bounds={heatmapBounds}
+          opacity={0.65}
+          zIndex={1}
+        />
+      )}
+
+      {liveStations.map((station) => (
         <StationMarker
           key={station.id}
           station={station}
-          highlighted={highlightIds.includes(station.id)}
+          highlighted={highlighted.has(station.id)}
         />
+      ))}
+
+      {installSites.map((site) => (
+        <CircleMarker
+          key={`install-${site.number}`}
+          center={[site.latitude, site.longitude]}
+          radius={9}
+          pathOptions={{
+            color: "#f8fafc",
+            weight: 2,
+            fillColor: "#06b6d4",
+            fillOpacity: 0.95,
+          }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -8]}>
+            <strong>Точка №{site.number}</strong>
+            <br />
+            Загрязнение: {site.mass.toFixed(1)} мкг/м³
+            <br />
+            До станции: {site.gapKm.toFixed(1)} км
+          </Tooltip>
+        </CircleMarker>
       ))}
 
       {/* таймзоны — скрыты, когда активен любой режим кластеров */}

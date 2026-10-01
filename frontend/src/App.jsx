@@ -1025,15 +1025,6 @@ export default function App() {
                     value={movingCount}
                     onChange={(e) => setMovingCount(e.target.value)}
                   />
-                  <span className="dim-note">
-                    остальные — стационарные
-                  </span>
-                </div>
-                <div className="row">
-                  <span className="dim-note">
-                    движущиеся создаются на дорогах и едут по маршруту
-                    длиной около 6 км (туда-обратно)
-                  </span>
                 </div>
                 {countMsg && <div className="count-msg">{countMsg}</div>}
                 <div className="row">
@@ -1048,11 +1039,9 @@ export default function App() {
                       ? "Отменить добавление"
                       : "Добавить устройство на карту"}
                   </button>
-                  <span className="dim-note">
-                    {addPhase
-                      ? "→ кликните по карте"
-                      : "размещение по клику на карте"}
-                  </span>
+                  {addPhase && (
+                    <span className="dim-note">→ кликните по карте</span>
+                  )}
                 </div>
                 {addPhase && (
                   <div className="row">
@@ -1084,9 +1073,6 @@ export default function App() {
                     onChange={(e) => setBufferCapacity(e.target.value)}
                   />
                   <button onClick={handleSetBuffer}>Изменить объём</button>
-                  <span className="dim-note">
-                    сверх ёмкости сообщения теряются
-                  </span>
                 </div>
                 {bufferMsg && <div className="count-msg">{bufferMsg}</div>}
                 <div className="row">
@@ -1105,9 +1091,6 @@ export default function App() {
                   <button onClick={handleSetBufferRate}>
                     Изменить скорость
                   </button>
-                  <span className="dim-note">
-                    1 — ровно успевает, меньше — буфер копится
-                  </span>
                 </div>
                 {bufferRateMsg && (
                   <div className="count-msg">{bufferRateMsg}</div>
@@ -1140,9 +1123,6 @@ export default function App() {
                     onChange={(e) => setMsgZone(e.target.value)}
                   />
                   <button onClick={handleSetMsgWeights}>Изменить веса</button>
-                  <span className="dim-note">
-                    × коэффициент загрязнения
-                  </span>
                 </div>
                 {msgWeightMsg && (
                   <div className="count-msg">{msgWeightMsg}</div>

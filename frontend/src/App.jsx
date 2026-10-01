@@ -846,6 +846,45 @@ export default function App() {
     );
   }, [stations, addEvent]);
 
+  // ---- сообщение о полной разрядке батареи ----
+  // Отдельный опрос не нужен: useStations обновляет список раз в секунду,
+  // ровно с частотой тика метрик, и в списке уже есть заряд и координаты.
+  // null означает «состояние ещё не засечено» — на первом кадре молча
+  // запоминаем текущее положение дел, иначе при открытии страницы в отчёт
+  // высыпались бы все давно разряженные станции.
+  const dischargedIdsRef = useRef(null);
+
+  useEffect(() => {
+    if (stations.length === 0) return;
+    // именно ноль: у заряда нет «неизвестного» значения, а isLive считает
+    // отсутствующее значение неживым, и такое молчание — не разрядка
+    const dead = stations.filter(
+      (s) => s.battery_life != null && Number(s.battery_life) <= 0
+    );
+    const deadIds = new Set(dead.map((s) => s.id));
+
+    if (dischargedIdsRef.current === null) {
+      dischargedIdsRef.current = deadIds;
+      return;
+    }
+
+    // станцию зарядили — снимаем с «блокировки», и следующая разрядка
+    // снова даст сообщение
+    for (const id of dischargedIdsRef.current) {
+      if (!deadIds.has(id)) dischargedIdsRef.current.delete(id);
+    }
+
+    for (const s of dead) {
+      if (dischargedIdsRef.current.has(s.id)) continue;
+      dischargedIdsRef.current.add(s.id);
+      addEvent(
+        "bat",
+        `Станция №${s.id}: батарея разряжена, требуется зарядка ` +
+          `(координаты: ${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)})`
+      );
+    }
+  }, [stations, addEvent]);
+
   const typeName = (t) =>
     t === 0 ? "Стац." : t === 1 ? "Движ." : "Класт.";
 

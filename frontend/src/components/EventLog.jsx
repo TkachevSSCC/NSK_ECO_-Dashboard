@@ -11,6 +11,7 @@ const timeFmt = new Intl.DateTimeFormat("ru-RU", {
 const KIND_LABELS = {
   crit: { label: "Превышение", color: "#ef4444" },
   warn: { label: "Буфер", color: "#eab308" },
+  bat: { label: "Батарея", color: "#fb923c" },
   act: { label: "Действие", color: "#38bdf8" },
   err: { label: "Ошибка", color: "#f87171" },
 };

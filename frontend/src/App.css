@@ -346,13 +346,18 @@ button:disabled:hover {
   color: var(--text);
 }
 
-/* уровень события: crit — превышение, warn — буфер, err — ошибка запроса */
+/* уровень события: crit — превышение, warn — буфер, bat — разряд батареи,
+   err — ошибка запроса */
 .event-log tr.ev-crit .ev-text {
   color: #ef4444;
 }
 
 .event-log tr.ev-warn .ev-text {
   color: #eab308;
+}
+
+.event-log tr.ev-bat .ev-text {
+  color: #fb923c;
 }
 
 .event-log tr.ev-err .ev-text {

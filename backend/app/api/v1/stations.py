@@ -5,7 +5,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
-from random import randint, uniform
+from math import isfinite
+from random import Random, randint, uniform
 
 from sqlalchemy import func, text, select
 from app.db.database import async_session_maker
@@ -40,6 +41,12 @@ from app.services.station_service import StationService
 from app.services.cluster_service import recluster, preview_cluster_layout
 from app.state.runtime import runtime_state
 from app.core.water import land_points_from, is_wet_point
+from app.core.roads import (
+    random_road_point,
+    snap_to_road,
+    road_status,
+    ROAD_MIN_ROUTE_M,
+)
 from app.core.redis_client import get_redis, POLLUTION_OVERRIDE_KEY
 from app.tasks.update_stations import reset_movement_state
 
@@ -361,6 +368,14 @@ async def get_water_mask(cells: int = 36):
     )
 
 
+@router.get("/roads")
+async def get_roads_status():
+    """Состояние дорожной сети: сколько улиц в roads.json и какой длины
+    минимальный маршрут. Нужен, чтобы понимать, едут ли движущиеся
+    станции по дорогам (status=ok) или по круговым орбитам (нет файла)."""
+    return JSONResponse(content=road_status())
+
+
 @router.get("/buffer")
 async def get_buffer_capacity():
     """Ёмкость и скорость обработки буфера очереди, КБ и КБ/с
@@ -487,6 +502,9 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
     демо-станций (от 1 до 2000). Первые moving_count станций —
     движущиеся (type_st=1), остальные — стационарные (type_st=0).
     По умолчанию движущихся нет: все станции стационарные.
+
+    Движущиеся станции создаются на дорогах (случайная точка уличной
+    сети), стационарные — по-прежнему случайно по суше.
     """
     count = max(1, min(count, 2000))
     if moving_count is None:
@@ -497,7 +515,22 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
     tlv = [10, 30]
     low = GENERATION_LOW
     high = GENERATION_HIGH
-    points = land_points_from(rng, low, high, count)
+
+    # ---- координаты: сначала движущиеся (на дорогах), потом стационарные ----
+    road_rng = Random(45)
+    points = []
+    roads_used = 0
+    for _ in range(moving_count):
+        pt = random_road_point(road_rng)
+        if pt is None:
+            break  # сети дорог нет — все станции будут по старой схеме
+        points.append((float(pt[0]), float(pt[1])))
+        roads_used += 1
+    # остальные точки — случайно по суше (движущиеся, если сети дорог
+    # не оказалось, тоже попадут сюда и поедут по круговой орбите)
+    points.extend(
+        land_points_from(rng, low, high, count - len(points))
+    )
     pm = np.round(rng.gamma((3, 5), (2, 4), (count, 2)), 2)
 
     async with async_session_maker() as session:
@@ -525,9 +558,15 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
             session.add(
                 StationBehavior(
                     station_id=idx,
-                    # у каждой станции свои скорость, радиус орбиты и фаза
                     radius=round(float(rng.uniform(0.0006, 0.0035)), 6),
-                    speed=round(float(rng.uniform(3.2, 16.0)), 2),
+                    # движущиеся станции едут по дороге: скорость в метрах
+                    # за тик (4–15 м/с — обычная городская), и только если
+                    # дорог рядом не оказалось — в «шагах» по круговой орбите
+                    speed=(
+                        round(float(rng.uniform(4.0, 15.0)), 2)
+                        if idx <= roads_used
+                        else round(float(rng.uniform(3.2, 16.0)), 2)
+                    ),
                     progress=round(float(rng.uniform(0.0, 11.99)), 2),
                 )
             )
@@ -539,7 +578,12 @@ async def set_stations_count(count: int = 100, moving_count: int | None = None):
     runtime_state["fake_pollutions"] = 0
 
     return JSONResponse(
-        content={"status": "ok", "stations_count": count, "moving_count": moving_count}
+        content={
+            "status": "ok",
+            "stations_count": count,
+            "moving_count": moving_count,
+            "on_roads": roads_used,
+        }
     )
 
 @router.post("/add")
@@ -553,10 +597,12 @@ async def add_station(
 ):
     """Добавляет одно устройство в указанную точку (клик по карте).
 
-    type_st: 0 — стационарное, 1 — движущееся (создаётся с параметрами
-    траектории, как в /set_count). pm25/pm10 — стартовые концентрации,
-    по умолчанию — случайные фоновые значения. Существующие станции
-    и их id не затрагиваются: новое устройство получает следующий id.
+    type_st: 0 — стационарное, 1 — движущееся. Движущееся ставится на
+    ближайшую дорогу и едет по ней (координаты слегка смещаются к
+    проезжей части — на сколько, говорит road_offset_m). pm25/pm10 —
+    стартовые концентрации, по умолчанию — случайные фоновые значения.
+    Существующие станции и их id не затрагиваются: новое устройство
+    получает следующий id.
     """
     if latitude != latitude or longitude != longitude:  # NaN
         return JSONResponse(
@@ -585,6 +631,16 @@ async def add_station(
     )
     over_tlv = int(pm25 > 25 or pm10 > 50)
 
+    # движущееся устройство привязываем к дороге: клик по карте попадает
+    # куда угодно, а поехать оно должно по улице. Смещение сообщаем в
+    # ответе, чтобы интерфейс мог показать, что точка сдвинулась.
+    road_offset_m = None
+    if type_st == 1:
+        road_lat, road_lon, dist_m = snap_to_road(latitude, longitude)
+        if isfinite(dist_m):
+            road_offset_m = round(dist_m, 1)
+            latitude, longitude = road_lat, road_lon
+
     async with async_session_maker() as session:
         max_id = (
             await session.execute(
@@ -605,13 +661,18 @@ async def add_station(
             )
         )
         # движущемуся устройству нужна траектория (те же параметры,
-        # что у станций из /set_count)
+        # что у станций из /set_count). Скорость по дороге задаётся
+        # в метрах за тик, по орбите — в шагах по точкам.
         if type_st == 1:
+            on_road = road_offset_m is not None
             session.add(
                 StationBehavior(
                     station_id=new_id,
                     radius=round(float(uniform(0.0006, 0.0035)), 6),
-                    speed=round(float(uniform(3.2, 16.0)), 2),
+                    speed=round(
+                        float(uniform(4.0, 15.0) if on_road else uniform(3.2, 16.0)),
+                        2,
+                    ),
                     progress=round(float(uniform(0.0, 11.99)), 2),
                 )
             )
@@ -632,6 +693,7 @@ async def add_station(
             "PM_2_5": pm25,
             "PM_10": pm10,
             "overTLV": over_tlv,
+            "road_offset_m": road_offset_m,
         }
     )
 

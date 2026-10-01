@@ -319,17 +319,16 @@ export default function App() {
           addEvent("err", "Ошибка добавления устройства");
           return;
         }
-        setAddMsg(
-          `Добавлено устройство №${data.station_id}: ${data.latitude.toFixed(
-            5
-          )}, ${data.longitude.toFixed(5)} (${typeLabel})`
-        );
-        addEvent(
-          "act",
-          `Добавлено устройство №${data.station_id}: ${data.latitude.toFixed(
-            5
-          )}, ${data.longitude.toFixed(5)} (${typeLabel})`
-        );
+        // движущееся устройство привязали к дороге — сообщаем, насколько сдвинули
+        const roadNote =
+          typeof data.road_offset_m === "number"
+            ? ` → дорога (сдвиг ${Math.round(data.road_offset_m)} м)`
+            : "";
+        const msg = `Добавлено устройство №${data.station_id}: ${data.latitude.toFixed(
+          5
+        )}, ${data.longitude.toFixed(5)} (${typeLabel})${roadNote}`;
+        setAddMsg(msg);
+        addEvent("act", msg);
         // состав изменился — таймзоны/кластеры на карте устарели
         setShowZones(false);
         setShowClusterHeads(false);
@@ -1028,6 +1027,11 @@ export default function App() {
                   />
                   <span className="dim-note">
                     остальные — стационарные
+                  </span>
+                </div>
+                <div className="row">
+                  <span className="dim-note">
+                    движущиеся создаются на дорогах и едут по ним (туда-обратно)
                   </span>
                 </div>
                 {countMsg && <div className="count-msg">{countMsg}</div>}

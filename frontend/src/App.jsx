@@ -105,6 +105,11 @@ export default function App() {
   const [bufferRateMsg, setBufferRateMsg] = useState("");
   const [weightPerSecond, setWeightPerSecond] = useState(0);
 
+  // вес одного сообщения в глобальную сеть и в пределах зоны, КБ
+  const [msgGlobal, setMsgGlobal] = useState("1");
+  const [msgZone, setMsgZone] = useState("0.4");
+  const [msgWeightMsg, setMsgWeightMsg] = useState("");
+
   // при загрузке подтягиваем ёмкость и скорость обработки буфера с бэкенда,
   // чтобы поля показывали реальные значения, а не значения по умолчанию
   useEffect(() => {
@@ -124,6 +129,30 @@ export default function App() {
         }
       } catch (err) {
         if (!cancelled) console.error("Ошибка чтения буфера:", err);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // при загрузке подтягиваем актуальные веса сообщений с бэкенда
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${BASE}/stations/msg_weights`);
+        const data = await res.json();
+        if (!res.ok || data.status === "error") return;
+        if (!cancelled) {
+          setMsgGlobal(String(data.global_msg_kb));
+          setMsgZone(String(data.zone_msg_kb));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Ошибка загрузки весов сообщений:", err);
+        }
       }
     };
     load();
@@ -529,6 +558,48 @@ export default function App() {
       console.error("Ошибка изменения скорости обработки буфера:", err);
       setBufferRateMsg("Не удалось изменить скорость обработки буфера");
       addEvent("err", "Ошибка изменения скорости обработки буфера");
+    }
+  };
+
+  const handleSetMsgWeights = async () => {
+    const g = parseFloat(msgGlobal);
+    const z = parseFloat(msgZone);
+    if (Number.isNaN(g) || Number.isNaN(z) || g < 0 || z < 0) {
+      setMsgWeightMsg("Укажите вес сообщения от 0 до 100 КБ");
+      return;
+    }
+    setMsgWeightMsg("Применяю…");
+    try {
+      const res = await fetch(
+        `${BASE}/stations/set_msg_weights?global_kb=${encodeURIComponent(
+          g
+        )}&zone_kb=${encodeURIComponent(z)}`,
+        { method: "POST" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status === "error") {
+        const reason =
+          data.message ||
+          (Array.isArray(data.detail)
+            ? data.detail[0]?.msg
+            : data.detail) ||
+          `код ${res.status}`;
+        setMsgWeightMsg(`Ошибка изменения весов сообщений: ${reason}`);
+        return;
+      }
+      setMsgGlobal(String(data.global_msg_kb));
+      setMsgZone(String(data.zone_msg_kb));
+      setMsgWeightMsg(
+        `Вес сообщения: сеть — ${data.global_msg_kb} КБ, зона — ${data.zone_msg_kb} КБ`
+      );
+      addEvent(
+        "act",
+        `Вес сообщения изменён: сеть — ${data.global_msg_kb} КБ, зона — ${data.zone_msg_kb} КБ`
+      );
+    } catch (err) {
+      console.error("Ошибка изменения весов сообщений:", err);
+      setMsgWeightMsg("Не удалось изменить веса сообщений");
+      addEvent("err", "Ошибка изменения весов сообщений");
     }
   };
 
@@ -1001,6 +1072,41 @@ export default function App() {
                 </div>
                 {bufferRateMsg && (
                   <div className="count-msg">{bufferRateMsg}</div>
+                )}
+                <div className="row">
+                  <span className="mode-label">
+                    Вес сообщения (сеть), КБ:
+                  </span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="0"
+                    max="100"
+                    step="0.05"
+                    value={msgGlobal}
+                    onChange={(e) => setMsgGlobal(e.target.value)}
+                  />
+                </div>
+                <div className="row">
+                  <span className="mode-label">
+                    Вес сообщения (зона), КБ:
+                  </span>
+                  <input
+                    type="number"
+                    className="num-input"
+                    min="0"
+                    max="100"
+                    step="0.05"
+                    value={msgZone}
+                    onChange={(e) => setMsgZone(e.target.value)}
+                  />
+                  <button onClick={handleSetMsgWeights}>Изменить веса</button>
+                  <span className="dim-note">
+                    × коэффициент загрязнения
+                  </span>
+                </div>
+                {msgWeightMsg && (
+                  <div className="count-msg">{msgWeightMsg}</div>
                 )}
                 <div className="row">
                   <button onClick={handlePollutionsMin}>Сброс значений</button>

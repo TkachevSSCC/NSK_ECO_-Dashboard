@@ -21,6 +21,8 @@ from app.metrics.scheduler import (
     MAX_BUFFER_RATE_RATIO,
     GLOBAL_MSG_KB,
     ZONE_MSG_KB,
+    MIN_MSG_KB,
+    MAX_MSG_KB,
     mean_weight_factor,
     BATTERY_DRAIN_GLOBAL,
     BATTERY_DRAIN_ZONE,
@@ -233,13 +235,17 @@ async def get_load_scenarios():
         g_factor = mean_weight_factor(active, g_ids) if mps else 1.0
         z_factor = mean_weight_factor(active, all_active_ids - g_ids)
 
+        # вес сообщения настраивается в «Управлении» (по умолчанию —
+        # константы выше); сценарии показывают те же значения, что и тики
+        global_msg_kb = runtime_state.get("global_msg_kb", GLOBAL_MSG_KB)
+        zone_msg_kb = runtime_state.get("zone_msg_kb", ZONE_MSG_KB)
 
-        global_kb = mps * GLOBAL_MSG_KB * g_factor
+        global_kb = mps * global_msg_kb * g_factor
         # Всё, что не ушло в сеть, передаётся внутри зоны. Здесь нужен
         # минимум 1: планировщик держит «передачи в пределах зоны» не
         # ниже нуля, и полоска должна показывать то же, что график.
         zone_msgs = max(1, len(active) - mps) if active else 0
-        zone_kb = zone_msgs * ZONE_MSG_KB * z_factor
+        zone_kb = zone_msgs * zone_msg_kb * z_factor
 
         # Расход заряда так считать нельзя. Списывается не «сообщение»,
         # а конкретное устройство: стационарные (type=0) питаются постоянно
@@ -422,6 +428,54 @@ async def set_buffer_rate(rate_ratio: float = DEFAULT_BUFFER_RATE_RATIO):
             "status": "ok",
             "buffer_rate_ratio": rate_ratio,
             "max_buffer_rate_ratio": MAX_BUFFER_RATE_RATIO,
+        }
+    )
+
+
+@router.get("/msg_weights")
+async def get_msg_weights():
+    """Текущий вес одного сообщения в килобайтах — для глобальной сети
+    и в пределах зоны (для восстановления полей в интерфейсе).
+
+    Вес — базовый: реальный берётся ещё и с коэффициентом загрязнения
+    (1.0 / 1.2 / 1.5 / 2.0 по сумме PM2.5 + PM10).
+    """
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "global_msg_kb": runtime_state.get("global_msg_kb", GLOBAL_MSG_KB),
+            "zone_msg_kb": runtime_state.get("zone_msg_kb", ZONE_MSG_KB),
+            "min_msg_kb": MIN_MSG_KB,
+            "max_msg_kb": MAX_MSG_KB,
+            "default_global_msg_kb": GLOBAL_MSG_KB,
+            "default_zone_msg_kb": ZONE_MSG_KB,
+        }
+    )
+
+
+@router.post("/set_msg_weights")
+async def set_msg_weights(
+    global_kb: float = GLOBAL_MSG_KB, zone_kb: float = ZONE_MSG_KB
+):
+    """Вес одного сообщения в килобайтах (0–100): global_kb — сообщение
+    в глобальную сеть, zone_kb — в пределах зоны. Влияет на вес трафика,
+    буфер очереди и сценарии нагрузок; число сообщений не меняется."""
+    if global_kb != global_kb or zone_kb != zone_kb:  # NaN
+        return JSONResponse(
+            status_code=422,
+            content={"status": "error", "message": "Некорректный вес сообщения"},
+        )
+    global_kb = round(max(MIN_MSG_KB, min(global_kb, MAX_MSG_KB)), 3)
+    zone_kb = round(max(MIN_MSG_KB, min(zone_kb, MAX_MSG_KB)), 3)
+    runtime_state["global_msg_kb"] = global_kb
+    runtime_state["zone_msg_kb"] = zone_kb
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "global_msg_kb": global_kb,
+            "zone_msg_kb": zone_kb,
+            "min_msg_kb": MIN_MSG_KB,
+            "max_msg_kb": MAX_MSG_KB,
         }
     )
 

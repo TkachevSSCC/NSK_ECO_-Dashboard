@@ -20,6 +20,9 @@ from app.state.runtime import runtime_state
 # градации загрязнения, см. MSG_WEIGHT_STEPS)
 GLOBAL_MSG_KB = 1.0  # сообщение в глобальную сеть
 ZONE_MSG_KB = 0.4  # сообщение в пределах зоны
+# диапазон настройки веса сообщения, КБ (меняется из интерфейса)
+MIN_MSG_KB = 0.0
+MAX_MSG_KB = 100.0
 
 # расход батареи за одно сообщение, процент заряда
 BATTERY_DRAIN_GLOBAL = 0.1  # сообщение в глобальную сеть
@@ -216,8 +219,14 @@ async def metrics_tick():
     zone_ids = {s["id"] for s in active} - global_ids
     zone_factor = mean_weight_factor(active, zone_ids) if zone_ids else 1.0
 
-    produced_global_kb = global_messages * GLOBAL_MSG_KB * global_factor
-    produced_zone_kb = zone_messages * ZONE_MSG_KB * zone_factor
+    # Базовый вес (КБ) одного сообщения в глобальную сеть и в пределах
+    # зоны может меняться из интерфейса («Управление») — runtime_state,
+    # по умолчанию константы GLOBAL_MSG_KB / ZONE_MSG_KB
+    global_msg_kb = runtime_state.get("global_msg_kb", GLOBAL_MSG_KB)
+    zone_msg_kb = runtime_state.get("zone_msg_kb", ZONE_MSG_KB)
+
+    produced_global_kb = global_messages * global_msg_kb * global_factor
+    produced_zone_kb = zone_messages * zone_msg_kb * zone_factor
     runtime_metrics["global_weight_factor"] = round(global_factor, 3)
     runtime_metrics["zone_weight_factor"] = round(zone_factor, 3)
 

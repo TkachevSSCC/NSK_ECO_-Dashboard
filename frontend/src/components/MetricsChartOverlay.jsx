@@ -123,9 +123,9 @@ export default function MetricsChartOverlay({
   const chartData = data.map((d) => ({
     ...d,
     // «в пределах зоны» = живые устройства минус отправители в глобальную
-    // сеть; пока есть живые — не ниже 1 (та же формула, что в
-    // scheduler.metrics_tick: max(1, len(active) - mps))
-    free: d.total > 0 ? Math.max(1, (d.total ?? 0) - d.value) : 0,
+    // сеть; та же формула, что в scheduler.metrics_tick:
+    // max(0, len(active) - mps). Если все живые ушли в сеть, линия на нуле.
+    free: Math.max(0, (d.total ?? 0) - d.value),
   }));
 
   return (

@@ -248,10 +248,10 @@ async def get_load_scenarios():
         zone_msg_kb = runtime_state.get("zone_msg_kb", ZONE_MSG_KB)
 
         global_kb = mps * global_msg_kb * g_factor
-        # Всё, что не ушло в сеть, передаётся внутри зоны. Здесь нужен
-        # минимум 1: планировщик держит «передачи в пределах зоны» не
-        # ниже нуля, и полоска должна показывать то же, что график.
-        zone_msgs = max(1, len(active) - mps) if active else 0
+        # Всё, что не ушло в сеть, передаётся внутри зоны. Нижняя граница —
+        # ноль, как в планировщике (scheduler.metrics_tick), иначе полоска
+        # показывала бы трафик там, где в зоне не передаёт никто.
+        zone_msgs = max(0, len(active) - mps)
         zone_kb = zone_msgs * zone_msg_kb * z_factor
 
         # Расход заряда так считать нельзя. Списывается не «сообщение»,

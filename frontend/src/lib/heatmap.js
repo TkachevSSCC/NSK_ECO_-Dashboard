@@ -28,13 +28,17 @@ function normalize(value, min, max) {
   return max > min ? (value - min) / (max - min) : 0;
 }
 
+// Шкала цветов карты. Вынесена наружу, чтобы легенда в PDF собиралась из тех
+// же стопов, что и сама картинка, иначе подписи разошлись бы с цветами.
+export const HEAT_COLOR_STOPS = [
+  [0, [34, 197, 94]],
+  [0.35, [250, 204, 21]],
+  [0.65, [249, 115, 22]],
+  [1, [239, 68, 68]],
+];
+
 function colorFor(value) {
-  const stops = [
-    [0, [34, 197, 94]],
-    [0.35, [250, 204, 21]],
-    [0.65, [249, 115, 22]],
-    [1, [239, 68, 68]],
-  ];
+  const stops = HEAT_COLOR_STOPS;
   const t = Math.max(0, Math.min(1, value));
   for (let i = 1; i < stops.length; i += 1) {
     if (t <= stops[i][0]) {
@@ -47,6 +51,12 @@ function colorFor(value) {
     }
   }
   return stops[stops.length - 1][1];
+}
+
+// цвет шкалы в виде CSS-строки — для легенды и градиента
+export function heatColorCss(value) {
+  const [r, g, b] = colorFor(value);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function buildHeatmapField(
@@ -197,7 +207,9 @@ export function pickInstallSites(field, count = 5, waterMask = null) {
   return selected;
 }
 
-export function renderHeatmap(field) {
+// Картинка карты отдельным canvas: в PDF она вставляется напрямую, без
+// повторного декодирования data URL.
+export function renderHeatmapCanvas(field) {
   if (!field || typeof document === "undefined") return null;
   const scale = 4;
   const canvas = document.createElement("canvas");
@@ -265,5 +277,10 @@ export function renderHeatmap(field) {
       }
     }
   }
-  return canvas.toDataURL("image/png");
+  return canvas;
+}
+
+export function renderHeatmap(field) {
+  const canvas = renderHeatmapCanvas(field);
+  return canvas ? canvas.toDataURL("image/png") : null;
 }

@@ -18,6 +18,7 @@ import {
   pickInstallSites,
   renderHeatmap,
 } from "./lib/heatmap";
+import { buildHeatmapPdf, downloadBlob } from "./lib/heatmapPdf";
 
 const BASE = "";
 
@@ -167,6 +168,9 @@ export default function App() {
   const [heatmapImage, setHeatmapImage] = useState(null);
   const [heatmapBounds, setHeatmapBounds] = useState(null);
   const [installSites, setInstallSites] = useState([]);
+  // выгрузка отчёта по тепловой карте в PDF
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfMsg, setPdfMsg] = useState("");
 
   const [clusters, setClusters] = useState(null);
   // «передают все»: все станции передают в глобальную сеть (mode="clusters").
@@ -380,21 +384,11 @@ export default function App() {
     [addEvent]
   );
 
-  const handleToggleHeatmap = async () => {
-    if (showHeatmap) {
-      setShowHeatmap(false);
-      setHeatmapImage(null);
-      setHeatmapBounds(null);
-      setInstallSites([]);
-      addEvent("act", "Тепловая карта скрыта");
-      return;
-    }
-
+  // Расчёт карты и точек установки общий и для показа на карте, и для
+  // выгрузки в PDF: иначе отчёт был бы про другое состояние станций.
+  const collectHeatmap = async () => {
     const liveStations = stations.filter(isLive);
-    if (liveStations.length === 0) {
-      addEvent("err", "Тепловую карту не удалось построить: нет активных станций");
-      return;
-    }
+    if (liveStations.length === 0) return { error: "нет активных станций" };
 
     const field = buildHeatmapField(liveStations, 36, NOVOSIBIRSK_ANALYSIS_BOUNDS);
     // маска воды считается на бэкенде (там лежит геометрия водоёма).
@@ -412,7 +406,29 @@ export default function App() {
       console.error("Не удалось получить маску воды:", err);
     }
 
-    const sites = pickInstallSites(field, 3, waterMask);
+    return {
+      field,
+      sites: pickInstallSites(field, 3, waterMask),
+      stationCount: liveStations.length,
+    };
+  };
+
+  const handleToggleHeatmap = async () => {
+    if (showHeatmap) {
+      setShowHeatmap(false);
+      setHeatmapImage(null);
+      setHeatmapBounds(null);
+      setInstallSites([]);
+      addEvent("act", "Тепловая карта скрыта");
+      return;
+    }
+
+    const { error, field, sites } = await collectHeatmap();
+    if (error) {
+      addEvent("err", `Тепловую карту не удалось построить: ${error}`);
+      return;
+    }
+
     if (sites.length === 0) {
       addEvent(
         "err",
@@ -430,6 +446,37 @@ export default function App() {
       "act",
       `Тепловая карта построена: рекомендовано точек установки — ${sites.length}`
     );
+  };
+
+  const handleExportHeatmapPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    setPdfMsg("Готовлю PDF…");
+    try {
+      // карта считается заново под текущее состояние станций: в отчёте
+      // должно быть ровно то, что видно на экране
+      const { error, field, sites, stationCount } = await collectHeatmap();
+      if (error) {
+        setPdfMsg(`Выгрузить не удалось: ${error}`);
+        addEvent("err", `Не удалось выгрузить тепловую карту в PDF: ${error}`);
+        return;
+      }
+      const { blob, fileName } = await buildHeatmapPdf({ field, sites, stationCount });
+      downloadBlob(blob, fileName);
+      setPdfMsg(
+        `Файл сохранён: ${fileName} · точек установки в отчёте — ${sites.length}`
+      );
+      addEvent(
+        "act",
+        `Тепловая карта выгружена в PDF: ${fileName}, точек установки — ${sites.length}`
+      );
+    } catch (err) {
+      console.error("Ошибка выгрузки тепловой карты в PDF:", err);
+      setPdfMsg("Не удалось выгрузить тепловую карту в PDF");
+      addEvent("err", "Ошибка выгрузки тепловой карты в PDF");
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const handlePollutionsMin = async () => {
@@ -1061,6 +1108,15 @@ export default function App() {
                   </div>
                 )}
                 {addMsg && <div className="count-msg">{addMsg}</div>}
+                <div className="row">
+                  <button
+                    onClick={handleExportHeatmapPdf}
+                    disabled={pdfBusy}
+                  >
+                    {pdfBusy ? "Готовлю PDF…" : "Выгрузить тепловую карту в PDF"}
+                  </button>
+                </div>
+                {pdfMsg && <div className="count-msg">{pdfMsg}</div>}
                 <div className="row">
                   <span className="mode-label">Объём буфера, КБ:</span>
                   <input

@@ -348,6 +348,39 @@ export default function App() {
     [addPhase, addBusy, addType, addEvent]
   );
 
+  // удаление устройства по клику на кнопку в карточке станции
+  const handleRemoveDevice = useCallback(
+    async (id) => {
+      try {
+        const res = await fetch(`${BASE}/stations/${id}/remove`, {
+          method: "POST",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status === "error") {
+          addEvent(
+            "err",
+            data.message || `Ошибка удаления устройства (код ${res.status})`
+          );
+          return false;
+        }
+        addEvent("act", `Удалено устройство №${id}`);
+        // состав изменился — таймзоны/кластеры на карте устарели
+        setShowZones(false);
+        setShowClusterHeads(false);
+        setShowBatteryHeads(false);
+        setZones([]);
+        setClusters(null);
+        clearHighlights();
+        return true;
+      } catch (err) {
+        console.error("Ошибка удаления устройства:", err);
+        addEvent("err", "Ошибка удаления устройства");
+        return false;
+      }
+    },
+    [addEvent]
+  );
+
   const handleToggleHeatmap = async () => {
     if (showHeatmap) {
       setShowHeatmap(false);
@@ -862,6 +895,7 @@ export default function App() {
                 installSites={showHeatmap ? installSites : []}
                 weightPerSecond={weightPerSecond}
                 onAddDevice={addPhase ? handleAddDevice : null}
+                onRemoveDevice={handleRemoveDevice}
               />
             </div>
 

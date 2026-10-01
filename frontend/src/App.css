@@ -865,6 +865,36 @@ button:disabled:hover {
   cursor: default;
 }
 
+/* кнопка удаления устройства в карточке станции на карте */
+.btn-remove {
+  margin-top: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: #fca5a5;
+  background: transparent;
+  border: 1px solid #7f1d1d;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-remove:hover:not(:disabled) {
+  color: #fee2e2;
+  background: #7f1d1d;
+}
+
+/* состояние подтверждения: второе нажатие удаляет */
+.btn-remove-armed {
+  color: #fee2e2;
+  background: #b91c1c;
+  border-color: #ef4444;
+  font-weight: 600;
+}
+
+.btn-remove:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* режим «добавить устройство»: курсор-прицел на карте вместо руки */
 .leaflet-container.placing-device {
   cursor: crosshair;

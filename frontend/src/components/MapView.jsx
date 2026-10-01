@@ -100,6 +100,7 @@ export default function MapView({
   installSites = [],
   weightPerSecond = 0,
   onAddDevice = null,
+  onRemoveDevice = null,
 }) {
   // станции с нулевым зарядом не передают и не показываются на карте
   const liveStations = stations.filter((s) => (s.battery_life ?? 0) > 0);
@@ -136,6 +137,7 @@ export default function MapView({
           key={station.id}
           station={station}
           highlighted={highlighted.has(station.id)}
+          onRemoveDevice={onRemoveDevice}
         />
       ))}
 

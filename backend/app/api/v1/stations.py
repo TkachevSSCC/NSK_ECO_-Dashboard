@@ -7,7 +7,7 @@ from datetime import datetime
 import numpy as np
 from random import randint, uniform
 
-from sqlalchemy import text, select
+from sqlalchemy import func, text, select
 from app.db.database import async_session_maker
 from app.db.models.station import Stations
 from app.db.models.station_behavior import StationBehavior
@@ -634,6 +634,63 @@ async def add_station(
             "overTLV": over_tlv,
         }
     )
+
+@router.post("/{station_id}/remove")
+async def remove_station(station_id: int):
+    """Удаляет одно устройство по его номеру.
+
+    Вместе со станцией удаляется её запись о траектории (StationBehavior)
+    и Redis-оверрайд загрязнения: иначе оверрайд остался бы висеть
+    в хеше и занимать память до конца своих тиков.
+
+    Остальные устройства не затрагиваются: их id не меняются, поэтому
+    нумерация в интерфейсе остаётся стабильной.
+    """
+    async with async_session_maker() as session:
+        st = await session.get(Stations, station_id)
+        if st is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "status": "error",
+                    "message": f"Станция {station_id} не найдена",
+                },
+            )
+        # траекторию (движение) удаляем явно: каскад есть, но не на всех
+        # схемах БД, а запись без станции повесилась бы в выборке движений
+        behavior = (
+            await session.execute(
+                select(StationBehavior).where(
+                    StationBehavior.station_id == station_id
+                )
+            )
+        ).scalar_one_or_none()
+        if behavior is not None:
+            await session.delete(behavior)
+        await session.delete(st)
+        await session.commit()
+
+    get_redis().hdel(POLLUTION_OVERRIDE_KEY, str(station_id))
+    # сбрасываем кеш маршрутов: у оставшихся движущихся устройств
+    # после удаления соседа не должно быть устаревших координат
+    reset_movement_state()
+
+    # счётчик в рантайме живёт неточно (он обновляется только при
+    # пересоздании/зарядке), поэтому пересчитываем его по базе
+    async with async_session_maker() as session:
+        left = int(
+            (await session.execute(select(func.count(Stations.id)))).scalar_one()
+        )
+    runtime_state["stations_count"] = left
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "station_id": station_id,
+            "stations_count": left,
+        }
+    )
+
 
 @router.get("")
 async def get_stations() -> list[Station]:

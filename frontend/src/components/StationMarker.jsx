@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { CircleMarker, Popup } from "react-leaflet";
 
 const LEVEL_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
@@ -35,11 +35,80 @@ const HIGHLIGHT_PATH_OPTIONS = {
   fillOpacity: 0.18,
 };
 
+/** Хэш станции: обновляем тексты в уже открытом popup на каждом тике,
+ *  иначе в открытой карточке остались бы показания минуту назад. */
+function PopupBody({ station, onRemoveDevice }) {
+  const isStationary = station.type_st === 0;
+  const isMoving = station.type_st === 1;
+  const isClusterHead = station.type_st === 2;
+  const [busy, setBusy] = useState(false);
+  // подтверждение: первое нажатие спрашивает, второе удаляет
+  const [armed, setArmed] = useState(false);
+
+  // смена станции в том же маркере сбрасывает подтверждение
+  useEffect(() => {
+    setArmed(false);
+    setBusy(false);
+  }, [station.id]);
+
+  const type = isStationary
+    ? "Стационарная"
+    : isMoving
+    ? "Движущаяся"
+    : "Кластерная";
+
+  const handleRemove = async () => {
+    if (!armed) {
+      setArmed(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await onRemoveDevice(station.id);
+    } finally {
+      setBusy(false);
+      setArmed(false);
+    }
+  };
+
+  return (
+    <>
+      <b>ПНЗ №{station.id}</b>
+      <br />
+      Тип: {type}
+      <br />
+      Координаты: {station.latitude.toFixed(5)},{" "}
+      {station.longitude.toFixed(5)}
+      <br />
+      PM 2.5: {station["PM_2_5"]}
+      <br />
+      PM 10: {station["PM_10"]}
+      {onRemoveDevice && (
+        <>
+          <br />
+          <button
+            type="button"
+            className={armed ? "btn-remove btn-remove-armed" : "btn-remove"}
+            disabled={busy}
+            onClick={handleRemove}
+          >
+            {busy
+              ? "Удаляю…"
+              : armed
+              ? "Точно удалить?"
+              : "Удалить устройство"}
+          </button>
+        </>
+      )}
+    </>
+  );
+}
+
 // Опрашиваем станции раз в секунду, и каждый ответ — новый объект, поэтому
 // memo со своим сравнением пропускает рендер станций, у которых не изменились
 // ни координаты, ни показания, ни подсветка. Без этого карта перерисовывает
 // все маркеры на каждом тике.
-function StationMarker({ station, highlighted = false }) {
+function StationMarker({ station, highlighted = false, onRemoveDevice = null }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const pm25 = Number(station["PM_2_5"]);
@@ -91,21 +160,7 @@ function StationMarker({ station, highlighted = false }) {
       >
         {isOpen && (
           <Popup onClose={close}>
-            <b>ПНЗ №{station.id}</b>
-            <br />
-            Тип:{" "}
-            {isStationary
-              ? "Стационарная"
-              : isMoving
-              ? "Движущаяся"
-              : "Кластерная"}
-            <br />
-            Координаты: {station.latitude.toFixed(5)},{" "}
-            {station.longitude.toFixed(5)}
-            <br />
-            PM 2.5: {station["PM_2_5"]}
-            <br />
-            PM 10: {station["PM_10"]}
+            <PopupBody station={station} onRemoveDevice={onRemoveDevice} />
           </Popup>
         )}
       </CircleMarker>
@@ -120,6 +175,7 @@ export default memo(StationMarker, (prev, next) => {
   const b = next.station;
   return (
     prev.highlighted === next.highlighted &&
+    prev.onRemoveDevice === next.onRemoveDevice &&
     a.id === b.id &&
     a.latitude === b.latitude &&
     a.longitude === b.longitude &&

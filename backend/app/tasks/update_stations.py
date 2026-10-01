@@ -150,11 +150,18 @@ async def update_stations_async():
                         if bh.progress >= len(pts):
                             bh.progress -= len(pts)
 
-                    old_lat, old_lon = st.latitude, st.longitude
-                    # если новая точка попала на воду — остаёмся на ближайшей суше
-                    st.latitude, st.longitude = snap_to_land(
-                        old_lat, old_lon, new_lat, new_lon
-                    )
+                    if route["road"]:
+                        # маршрут — это реальная геометрия OSM, поэтому точку
+                        # не трогаем: мосты через Обь официально пересекают
+                        # воду, и snap_to_land уводил бы с них устройство
+                        # на сотни метров в сторону, прямо с дороги
+                        st.latitude, st.longitude = new_lat, new_lon
+                    else:
+                        old_lat, old_lon = st.latitude, st.longitude
+                        # если новая точка попала на воду — остаёмся на ближайшей суше
+                        st.latitude, st.longitude = snap_to_land(
+                            old_lat, old_lon, new_lat, new_lon
+                        )
 
             result_all = await session.execute(select(Stations))
             stations_all = result_all.scalars().all()

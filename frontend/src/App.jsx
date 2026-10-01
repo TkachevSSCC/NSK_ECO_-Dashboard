@@ -1031,7 +1031,8 @@ export default function App() {
                 </div>
                 <div className="row">
                   <span className="dim-note">
-                    движущиеся создаются на дорогах и едут по ним (туда-обратно)
+                    движущиеся создаются на дорогах и едут по маршруту
+                    длиной около 6 км (туда-обратно)
                   </span>
                 </div>
                 {countMsg && <div className="count-msg">{countMsg}</div>}

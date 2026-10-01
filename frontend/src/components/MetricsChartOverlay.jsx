@@ -107,7 +107,9 @@ export default function MetricsChartOverlay({
         {
           time: new Date(msg.timestamp).toLocaleTimeString(),
           value: msg.messages_per_second,
-          total: msg.stations_count,
+          // только живые устройства (заряд > 0): мёртвые молчат и в зоне
+          // не передают, поэтому stations_count завышал жёлтую линию
+          total: msg.active_count,
           battery: msg.battery_avg ?? null,
         },
       ]);
@@ -120,7 +122,10 @@ export default function MetricsChartOverlay({
   // общее количество устройств минус текущее значение. Не ниже 0.
   const chartData = data.map((d) => ({
     ...d,
-    free: Math.max(0, (d.total ?? 0) - d.value),
+    // «в пределах зоны» = живые устройства минус отправители в глобальную
+    // сеть; пока есть живые — не ниже 1 (та же формула, что в
+    // scheduler.metrics_tick: max(1, len(active) - mps))
+    free: d.total > 0 ? Math.max(1, (d.total ?? 0) - d.value) : 0,
   }));
 
   return (

@@ -91,7 +91,6 @@ export default function MapView({
   zones,
   showZones,
   clusters,
-  showClusters,
   showClusterHeads,
   showBatteryHeads,
   highlightIds = [],
@@ -164,7 +163,6 @@ export default function MapView({
 
       {/* таймзоны — скрыты, когда активен любой режим кластеров */}
       {showZones &&
-        !showClusters &&
         !showClusterHeads &&
         !showBatteryHeads &&
         zones.map((zone, i) => (
@@ -183,8 +181,8 @@ export default function MapView({
           />
         ))}
 
-      {/* кластеры (обычные / с хедами / с питанием) */}
-      {(showClusters || showBatteryHeads || showClusterHeads) &&
+      {/* кластеры (с хедами / с питанием) */}
+      {(showBatteryHeads || showClusterHeads) &&
         clusters?.polygons?.length > 0 &&
         clusters.polygons.map((cluster, i) => (
           <Polygon

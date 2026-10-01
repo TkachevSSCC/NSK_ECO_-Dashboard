@@ -132,7 +132,6 @@ export default function App() {
     };
   }, []);
 
-  const [showClusters, setShowClusters] = useState(false);
   const [showClusterHeads, setShowClusterHeads] = useState(false);
   const [showBatteryHeads, setShowBatteryHeads] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -202,27 +201,6 @@ export default function App() {
     return res.json();
   };
 
-  const handleToggleClusters = async () => {
-    if (showClusters) {
-      setShowClusters(false);
-      clearHighlights();
-      await resetOverlays();
-      addEvent("act", "Кластеры скрыты, оверлеи сброшены");
-    } else {
-      setShowClusterHeads(false);
-      setShowBatteryHeads(false);
-      // кластеры и таймзоны одновременно не показываем
-      setShowZones(false);
-      setZones([]);
-      setAllTransmit(false);
-      const response = await fetch(`${BASE}/stations/plot/cluster`);
-      const data = await response.json();
-      setClusters(data);
-      setShowClusters(true);
-      addEvent("act", `Показаны кластеры: ${(data || []).length} шт.`);
-    }
-  };
-
   const handleToggleClusterHeads = async () => {
     if (showClusterHeads) {
       setShowClusterHeads(false);
@@ -234,11 +212,6 @@ export default function App() {
       clearHighlights();
       await resetOverlays();
       addEvent("act", "Кластеры с питанием скрыты, оверлеи сброшены");
-    } else if (showClusters) {
-      setShowClusters(false);
-      clearHighlights();
-      await resetOverlays();
-      addEvent("act", "Кластеры скрыты, оверлеи сброшены");
     } else {
       setShowZones(false);
       setZones([]);
@@ -262,11 +235,6 @@ export default function App() {
       clearHighlights();
       await resetOverlays();
       addEvent("act", "Кластеры с хедами скрыты, оверлеи сброшены");
-    } else if (showClusters) {
-      setShowClusters(false);
-      clearHighlights();
-      await resetOverlays();
-      addEvent("act", "Кластеры скрыты, оверлеи сброшены");
     } else {
       setShowZones(false);
       setZones([]);
@@ -335,7 +303,6 @@ export default function App() {
         );
         // состав изменился — таймзоны/кластеры на карте устарели
         setShowZones(false);
-        setShowClusters(false);
         setShowClusterHeads(false);
         setShowBatteryHeads(false);
         setZones([]);
@@ -587,7 +554,6 @@ export default function App() {
 
       // сбросить все оверлеи (таймзоны/кластеры устарели)
       setShowZones(false);
-      setShowClusters(false);
       setShowClusterHeads(false);
       setShowBatteryHeads(false);
       setZones([]);
@@ -601,7 +567,6 @@ export default function App() {
 
   const chartVisible =
     showZones ||
-    showClusters ||
     showClusterHeads ||
     showBatteryHeads ||
     allTransmit;
@@ -782,12 +747,6 @@ export default function App() {
             <h2>Карта станций</h2>
             <div className="row">
               <button
-                onClick={handleToggleClusters}
-                className={showClusters ? "active" : ""}
-              >
-                {showClusters ? "Скрыть кластеры" : "Показать кластеры"}
-              </button>
-              <button
                 onClick={handleToggleClusterHeads}
                 className={showClusterHeads ? "active" : ""}
               >
@@ -852,7 +811,6 @@ export default function App() {
                 zones={zones}
                 showZones={showZones}
                 clusters={clusters}
-                showClusters={showClusters}
                 showClusterHeads={showClusterHeads}
                 showBatteryHeads={showBatteryHeads}
                 highlightIds={highlightIds}
@@ -1221,8 +1179,7 @@ export default function App() {
               </>
             )}
 
-            {(showClusters ||
-              showClusterHeads ||
+            {(showClusterHeads ||
               showBatteryHeads) &&
               clusters?.members?.length > 0 && (
                 <>
@@ -1338,11 +1295,10 @@ export default function App() {
 
             {dangerZones.length === 0 &&
               !showZones &&
-              !showClusters &&
               !showClusterHeads &&
               !showBatteryHeads && (
                 <p className="dim-note">
-                  Включите «Показать таймзоны» или «Показать кластеры»,
+                  Включите «Показать таймзоны» или один из режимов кластеров,
                   чтобы увидеть состав зон и кластеров.
                 </p>
               )}

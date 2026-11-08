@@ -253,7 +253,7 @@ export default function App() {
       const data = await response.json();
       setClusters(data);
       setShowClusterHeads(true);
-      addEvent("act", `Показаны кластеры с хедами: ${(data || []).length} шт.`);
+      addEvent("act", `Показаны кластеры с хедами: ${data?.polygons?.length ?? 0} шт.`);
     }
   };
 
@@ -280,7 +280,7 @@ export default function App() {
       setShowBatteryHeads(true);
       addEvent(
         "act",
-        `Показаны кластеры с питанием: ${(data || []).length} шт.`
+        `Показаны кластеры с питанием: ${data?.polygons?.length ?? 0} шт.`
       );
     }
   };

@@ -365,3 +365,14 @@ async def metrics_tick():
         "silent_count": len(stations) - len(active),
         "danger_cluster_count": danger_cluster_count,
     })
+
+    # ---- интеграция с СИГМА: отправляем только переходы состояний, ----
+    # ---- а не каждый тик; сбой интеграции не влияет на метрики    ----
+    try:
+        from app.integrations.sigma.integration import sigma_integration
+
+        await sigma_integration.observe(
+            stations, runtime_metrics, runtime_state
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"sigma observe error: {exc}")

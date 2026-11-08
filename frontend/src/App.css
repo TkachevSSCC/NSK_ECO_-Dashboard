@@ -336,6 +336,100 @@ select {
   border-radius: var(--r-sm);
 }
 
+/* ===== Интеграция с СИГМА ===== */
+.sigma-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.sigma-badge.ok {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.sigma-badge.warn {
+  color: #fde68a;
+  border-color: rgba(234, 179, 8, 0.55);
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.sigma-badge.off {
+  color: var(--dim);
+  background: var(--sunken);
+}
+
+.sigma-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-top: var(--sp-3);
+  font-size: 12px;
+}
+
+.sigma-grid > span:nth-child(odd) {
+  color: var(--dim);
+}
+
+.sigma-grid > span:nth-child(even) {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.sigma-value {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.sigma-events {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: var(--sp-2);
+}
+
+.sigma-events table {
+  margin-top: 0;
+}
+
+.sigma-events thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.sigma-events .sigma-event-desc {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.sigma-events .sigma-level {
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sigma-events .sigma-level.warn {
+  color: #eab308;
+}
+
+.sigma-events .sigma-level.crit {
+  color: #ef4444;
+}
+
+.sigma-events .sigma-level.info {
+  color: #86efac;
+}
+
 /* ===== Таблица ===== */
 table {
   width: 100%;

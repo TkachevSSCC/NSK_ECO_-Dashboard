@@ -35,6 +35,16 @@ const DANGER_MAX_RADIUS_M = 12000;
 // устройство с ненулевым зарядом: разряженные не передают и не показываются
 const isLive = (s) => (s.battery_life ?? 0) > 0;
 
+// время события СИГМА в локальном формате; исходную строку показываем,
+// если браузер не смог её разобрать
+const formatSigmaTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleString("ru-RU");
+};
+
 // расстояние между узлами по гаверсинусу, км
 function haversineKm(a, b) {
   const R = 6371;
@@ -94,6 +104,36 @@ export default function App() {
   const [pollMsg, setPollMsg] = useState("");
   const [pollFormOpen, setPollFormOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
+
+  // ---- интеграция с платформой СИГМА ----
+  const [sigmaStatus, setSigmaStatus] = useState(null);
+  const [sigmaBusy, setSigmaBusy] = useState(false);
+  const [sigmaMsg, setSigmaMsg] = useState("");
+  const [sigmaEvents, setSigmaEvents] = useState([]);
+  const [sigmaEventsOpen, setSigmaEventsOpen] = useState(false);
+  const [sigmaEventsMsg, setSigmaEventsMsg] = useState("");
+
+  const loadSigmaStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${BASE}/sigma/status`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `код ${res.status}`);
+      setSigmaStatus(data);
+      return data;
+    } catch (err) {
+      console.error("Ошибка статуса СИГМА:", err);
+      setSigmaStatus((prev) => prev || { configured: false, missing: [] });
+      return null;
+    }
+  }, []);
+
+  // статус обновляем только когда открыта вкладка «Управление»
+  useEffect(() => {
+    if (!controlOpen) return;
+    loadSigmaStatus();
+    const timer = setInterval(loadSigmaStatus, 15000);
+    return () => clearInterval(timer);
+  }, [controlOpen, loadSigmaStatus]);
 
   const [zones, setZones] = useState([]);
   const [showZones, setShowZones] = useState(false);
@@ -707,6 +747,58 @@ export default function App() {
     }
   };
 
+  const handleSigmaTest = async () => {
+    setSigmaBusy(true);
+    setSigmaMsg("Отправляю тестовое событие…");
+    try {
+      const res = await fetch(`${BASE}/sigma/test`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const reason = Array.isArray(data.detail)
+          ? data.detail[0]?.msg
+          : data.detail || data.message || `код ${res.status}`;
+        setSigmaMsg(`Ошибка: ${reason}`);
+        addEvent("err", `СИГМА: ошибка проверки связи (${reason})`);
+        return;
+      }
+      setSigmaMsg(
+        `Тестовое событие отправлено, correlation_id: ${data.correlation_id}`
+      );
+      addEvent("act", "СИГМА: тестовое событие отправлено");
+      await loadSigmaStatus();
+    } catch (err) {
+      console.error("Ошибка проверки СИГМА:", err);
+      setSigmaMsg("Не удалось отправить тестовое событие");
+      addEvent("err", "СИГМА: ошибка проверки связи");
+    } finally {
+      setSigmaBusy(false);
+    }
+  };
+
+  const handleSigmaEvents = async () => {
+    setSigmaEventsOpen(true);
+    setSigmaEventsMsg("Загружаю…");
+    try {
+      const res = await fetch(`${BASE}/sigma/events?limit=10`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const reason = Array.isArray(data.detail)
+          ? data.detail[0]?.msg
+          : data.detail || data.message || `код ${res.status}`;
+        setSigmaEventsMsg(`Ошибка: ${reason}`);
+        return;
+      }
+      setSigmaEvents(data.events || []);
+      setSigmaEventsMsg(
+        data.events && data.events.length ? "" : "Событий пока нет"
+      );
+      await loadSigmaStatus();
+    } catch (err) {
+      console.error("Ошибка чтения событий СИГМА:", err);
+      setSigmaEventsMsg("Не удалось загрузить события");
+    }
+  };
+
   const handleSetStationCount = async () => {
     const n = Math.max(1, Math.min(parseInt(stationCount, 10) || 100, 2000));
     const m = Math.max(0, Math.min(parseInt(movingCount, 10) || 0, n));
@@ -942,6 +1034,32 @@ export default function App() {
       setBufferAlert((prev) => (prev && prev.id === id ? null : prev));
     }, BUFFER_ALERT_MS);
   };
+
+  const sigmaConfigured = Boolean(sigmaStatus?.configured);
+  const sigmaEnabled = Boolean(sigmaStatus?.enabled);
+  const sigmaWorker = Boolean(sigmaStatus?.worker_running);
+  const sigmaHasError =
+    sigmaEnabled &&
+    Boolean(
+      sigmaStatus?.start_error ||
+        sigmaStatus?.redis_error ||
+        sigmaStatus?.last_error
+    );
+  const sigmaTone = !sigmaConfigured || !sigmaEnabled
+    ? "off"
+    : sigmaHasError || !sigmaWorker
+    ? "warn"
+    : "ok";
+  const sigmaLabel = !sigmaConfigured
+    ? "не настроено"
+    : !sigmaEnabled
+    ? "выключено"
+    : sigmaHasError
+    ? "внимание"
+    : sigmaWorker
+    ? "работает"
+    : "запускается";
+  const sigmaCounters = sigmaStatus?.counters || {};
 
   return (
     <div className="app">
@@ -1301,6 +1419,138 @@ export default function App() {
                 </>
               )}
                 {pollMsg && <div className="count-msg">{pollMsg}</div>}
+
+                <h3 className="table-title">Платформа СИГМА</h3>
+                <div className="row">
+                  <span className="mode-label">Статус:</span>
+                  <span className={`sigma-badge ${sigmaTone}`}>
+                    {sigmaLabel}
+                  </span>
+                  {sigmaConfigured && (
+                    <span className="sigma-value">
+                      очередь: {sigmaStatus?.queue_size ?? 0}
+                    </span>
+                  )}
+                </div>
+                {sigmaConfigured ? (
+                  <>
+                    <div className="sigma-grid">
+                      <span>Шлюз</span>
+                      <span className="sigma-value">
+                        {sigmaStatus?.endpoint_url || "—"}
+                      </span>
+                      <span>Источник</span>
+                      <span className="sigma-value">
+                        {sigmaStatus?.source_id || "—"}
+                      </span>
+                      <span>Отправлено</span>
+                      <span className="sigma-value">
+                        {sigmaCounters.sent ?? 0}
+                      </span>
+                      <span>Повторов</span>
+                      <span className="sigma-value">
+                        {sigmaCounters.failed ?? 0}
+                      </span>
+                      <span>Dead-letter</span>
+                      <span className="sigma-value">
+                        {sigmaCounters.dead ?? 0}
+                      </span>
+                      <span>Последняя отправка</span>
+                      <span className="sigma-value">
+                        {formatSigmaTime(sigmaStatus?.last_sent_at)}
+                      </span>
+                    </div>
+                    {sigmaStatus?.start_error && (
+                      <div className="count-msg">
+                        Запуск: {sigmaStatus.start_error}
+                      </div>
+                    )}
+                    {sigmaStatus?.redis_error && (
+                      <div className="count-msg">
+                        Очередь: {sigmaStatus.redis_error}
+                      </div>
+                    )}
+                    {sigmaStatus?.last_error && (
+                      <div className="count-msg">
+                        Последняя ошибка: {sigmaStatus.last_error}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="count-msg">
+                    Не настроено:{" "}
+                    {sigmaStatus?.missing?.length
+                      ? `задайте ${sigmaStatus.missing.join(", ")}`
+                      : "проверьте SIGMA_* в backend/.env"}
+                  </div>
+                )}
+                <div className="row">
+                  <button
+                    onClick={handleSigmaTest}
+                    disabled={
+                      sigmaBusy ||
+                      !sigmaConfigured ||
+                      sigmaStatus?.test_enabled === false
+                    }
+                  >
+                    {sigmaBusy ? "Отправляю…" : "Проверить связь"}
+                  </button>
+                  <button
+                    onClick={handleSigmaEvents}
+                    disabled={!sigmaConfigured}
+                  >
+                    {sigmaEventsOpen
+                      ? "Обновить события"
+                      : "Последние события"}
+                  </button>
+                </div>
+                {sigmaMsg && <div className="count-msg">{sigmaMsg}</div>}
+                {sigmaEventsOpen && (
+                  <div className="sigma-events">
+                    {sigmaEventsMsg && (
+                      <div className="count-msg">{sigmaEventsMsg}</div>
+                    )}
+                    {sigmaEvents.length > 0 && (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Событие</th>
+                            <th>Уровень</th>
+                            <th>Время</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sigmaEvents.map((event) => (
+                            <tr key={event.id}>
+                              <td>{event.id}</td>
+                              <td
+                                className="sigma-event-desc"
+                                title={event.description || ""}
+                              >
+                                {event.event_type ||
+                                  event.description ||
+                                  "—"}
+                              </td>
+                              <td
+                                className={`sigma-level ${(
+                                  event.level || ""
+                                ).toLowerCase()}`}
+                              >
+                                {event.level || "—"}
+                              </td>
+                              <td>
+                                {formatSigmaTime(
+                                  event.timestamp || event.created_at
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </section>

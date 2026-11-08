@@ -1,5 +1,9 @@
 # Environment / secrets
 .env
+.sigma.env
+
+# Redis dump (появляется при локальном запуске)
+dump.rdb
 
 # Python
 __pycache__/

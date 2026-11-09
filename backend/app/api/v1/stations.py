@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Path, Query
 from fastapi.responses import FileResponse, JSONResponse
 
 import matplotlib
@@ -325,7 +325,7 @@ async def get_load_scenarios():
 
 
 @router.get("/water_mask")
-async def get_water_mask(cells: int = 36):
+async def get_water_mask(cells: int = Query(36, ge=4, le=120)):
     """Признак воды по ячейкам сетки анализа.
 
     Нужен интерфейсу, чтобы не рекомендовать точку установки в воде:
@@ -496,7 +496,10 @@ async def set_msg_weights(
 
 
 @router.post("/set_count")
-async def set_stations_count(count: int = 100, moving_count: int | None = None):
+async def set_stations_count(
+    count: int = Query(100, ge=1, le=2000),
+    moving_count: int | None = Query(None, ge=0, le=2000),
+):
     """
     Удаляет все станции и создаёт заново указанное количество
     демо-станций (от 1 до 2000). Первые moving_count станций —
@@ -886,7 +889,10 @@ async def get_station(station_id: int) -> Station:
 
 
 @router.get("/plot/cluster")
-async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> JSONResponse:
+async def get_cluster_schedule(
+    capacity: int = Query(10, ge=1, le=2000),
+    mode: str | None = Query(None, pattern="^(head|battery_life)$"),
+) -> JSONResponse:
     variant = "battery_life" if mode == "battery_life" else ("head" if mode else None)
     result = await recluster(capacity=capacity, variant=variant)
     print(runtime_state)
@@ -896,7 +902,7 @@ async def get_cluster_schedule(capacity: int = 10, mode: str | None = None) -> J
 
 
 @router.get("/plot/timezone")
-async def get_timezone_schedule(capacity: int = 10) -> JSONResponse:
+async def get_timezone_schedule(capacity: int = Query(10, ge=1, le=2000)) -> JSONResponse:
     stations_list = await StationService.find_all()
     stations = []
     for st in stations_list:
@@ -945,8 +951,12 @@ async def get_timezone_schedule(capacity: int = 10) -> JSONResponse:
 
     return JSONResponse(content={"zones": zones})
 
-@router.get("/plot/{option}")
-async def get_plot(option: int):
+@router.get(
+    "/plot/{option}",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/png": {}}}},
+)
+async def get_plot(option: int = Path(..., ge=1, le=4)):
     stations = await StationService.find_all()
     stations_list = []
     for st in stations:
@@ -982,7 +992,11 @@ async def get_plot(option: int):
     return FileResponse(filename, media_type="image/png")
 
 
-@router.post("/plot/cluster_heads")
+@router.post(
+    "/plot/cluster_heads",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/png": {}}}},
+)
 async def get_cluster_head_plot(data: PlotRequest):
     print(11)
     stations_list = [

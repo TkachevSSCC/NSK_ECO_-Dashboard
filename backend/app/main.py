@@ -8,7 +8,11 @@ from app.api.v1.ws_metrics import router as ws_metrics_router
 from app.integrations.sigma.api import router as sigma_router
 from app.integrations.sigma.integration import sigma_integration
 
-app = FastAPI()
+app = FastAPI(
+    title="NSK Eco Dashboard API",
+    version="1.0.0",
+    description="API мониторинга станций, загрязнения, сетевой нагрузки и интеграции с СИГМА.",
+)
 
 @app.on_event("startup")
 async def startup():

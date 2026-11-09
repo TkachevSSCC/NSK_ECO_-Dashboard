@@ -29,7 +29,14 @@ async def sigma_status():
     return await sigma_integration.status()
 
 
-@router.post("/test")
+@router.post(
+    "/test",
+    responses={
+        403: {"description": "Тестовые события отключены"},
+        409: {"description": "Интеграция не настроена или выключена"},
+        502: {"description": "Ошибка отправки в платформу СИГМА"},
+    },
+)
 async def sigma_test():
     _require_configured()
     if not sigma_integration.config.test_enabled:
@@ -46,7 +53,13 @@ async def sigma_test():
         raise HTTPException(status_code=502, detail=str(exc)[:500]) from exc
 
 
-@router.get("/events")
+@router.get(
+    "/events",
+    responses={
+        409: {"description": "Интеграция не настроена или выключена"},
+        502: {"description": "Ошибка запроса к платформе СИГМА"},
+    },
+)
 async def sigma_events(
     processed: bool | None = None,
     level: str | None = None,

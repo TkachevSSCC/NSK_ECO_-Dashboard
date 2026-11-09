@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 // время события фиксируется при его добавлении, здесь только форматируется
 const timeFmt = new Intl.DateTimeFormat("ru-RU", {

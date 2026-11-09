@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function Modal({ plotUrl, onClose }) {
   if (!plotUrl) return null; // без этого картинка может не отрендериться
 

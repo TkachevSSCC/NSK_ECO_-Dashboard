@@ -40,7 +40,6 @@ const HIGHLIGHT_PATH_OPTIONS = {
 function PopupBody({ station, onRemoveDevice }) {
   const isStationary = station.type_st === 0;
   const isMoving = station.type_st === 1;
-  const isClusterHead = station.type_st === 2;
   const [busy, setBusy] = useState(false);
   // подтверждение: первое нажатие спрашивает, второе удаляет
   const [armed, setArmed] = useState(false);

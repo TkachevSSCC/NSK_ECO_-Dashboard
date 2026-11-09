@@ -35,9 +35,14 @@ export default function MetricsChartOverlay({
   // обработчик переполнения храним в ref, чтобы не переподключать
   // WebSocket при каждом рендере родителя
   const onOverflowRef = useRef(onBufferOverflow);
+  const onWeightUpdateRef = useRef(onWeightUpdate);
 
   useEffect(() => {
     onOverflowRef.current = onBufferOverflow;
+  });
+
+  useEffect(() => {
+    onWeightUpdateRef.current = onWeightUpdate;
   });
 
   useEffect(() => {
@@ -67,7 +72,7 @@ export default function MetricsChartOverlay({
         Math.max(0, (msg.total_message_weight_kb ?? 0) - base.weight)
       );
       setWeightPerSecond(msg.weight_per_second_kb ?? 0);
-      onWeightUpdate?.(msg.weight_per_second_kb ?? 0);
+      onWeightUpdateRef.current?.(msg.weight_per_second_kb ?? 0);
 
       // заполнение буфера и потери при переполнении
       const totalDropped = msg.total_dropped_weight_kb ?? 0;

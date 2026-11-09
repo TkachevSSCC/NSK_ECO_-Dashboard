@@ -1,4 +1,4 @@
-import React, {
+import {
   useState,
   Fragment,
   useEffect,
@@ -866,7 +866,7 @@ export default function App() {
       )
       .slice(0, TOP_LIST_ROWS);
     setTopIds(ranked.map((s) => s.id));
-  }, [pollTick, stations]);
+  }, [pollTick, stations, topIds.length]);
 
   const topPolluted = topIds
     .map((id) => stations.find((s) => s.id === id))

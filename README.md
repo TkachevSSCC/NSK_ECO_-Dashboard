@@ -1,218 +1,221 @@
-# AirMonitoring
+# AirMonitoring / nsk_eco
 
-## 1. Быстрый старт
+Веб-приложение для мониторинга качества воздуха в Новосибирске. Проект показывает станции на карте, моделирует передачу данных по глобальной сети и локальным кластерам, рассчитывает нагрузку, расход батарей и зоны повышенного загрязнения.
 
-### 1.1 Установка и первоначальная настройка
-1. Клонируйте репозиторий в домашнюю директорию:
-```bash
-cd ~
-git clone https://???.??/
-cd nsk-eco
+## Состав проекта
+
+```text
+backend/
+├── app/                    # FastAPI-приложение
+│   ├── api/v1/             # REST API и WebSocket
+│   ├── db/                 # SQLAlchemy-модели и миграции Alembic
+│   ├── metrics/            # расчёт метрик и планировщик
+│   ├── services/           # бизнес-логика станций и кластеров
+│   └── data/               # маски воды, дорог и водоёмов
+├── .example.env            # шаблон переменных окружения
+└── app/requirements.txt    # зависимости Python
+frontend/
+├── src/                    # React-приложение
+├── package.json            # команды и зависимости npm
+└── vite.config.js          # dev-сервер и proxy к API
+data/                       # исходные данные WRF и станции
+start.ps1                   # запуск компонентов на Windows
 ```
 
-2. Настройка параметров баз данных Celery и PostgreSQL
-Заполнить файл .example.env
-Переименовать в .env
+## Требования
 
-3. Создание виртуальной рабочей среды
-Для Windows
-```bash
-python -m venv env
-env\Scripts\activate.bat
-pip install -r requirements.txt
-```
-Для MacOS
-```bash
-python3 -m venv env
-source env/bin/activate
-pip3 install -r requirements.txt
-```
+- Python 3.10+;
+- Node.js и npm;
+- PostgreSQL;
+- Redis;
+- Git.
 
-### 1.2 Запуск (каждый пункт в отдельном терминале)
-1. Запуск backend (только в virtual env)
+Для полноценной работы фоновых задач и динамического обновления станций должны быть доступны PostgreSQL и Redis.
+
+## Установка
+
+### 1. Backend
+
 ```bash
 cd backend
-uvicorn app.main:app --reload
+python3 -m venv .venv
+source .venv/bin/activate       # Linux/macOS
+# .venv\Scripts\Activate.ps1   # Windows PowerShell
+pip install -r app/requirements.txt
 ```
-Доступ по ссылке 127.0.0.1:8000 (стандартно)
 
-2. Запуск fronend
+Создайте файл `backend/.env` на основе `backend/.example.env` и укажите параметры подключения:
+
+```env
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+DB_USER=postgres
+DB_PASS=пароль
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=название_базы
+```
+
+Перед первым запуском убедитесь, что база данных PostgreSQL создана. Миграции выполняются из каталога `backend`:
+
+```bash
+alembic upgrade head
+```
+
+### 2. Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev
 ```
-Доступ по ссылке localhost:5173 (стандартно)
 
-3. Запуск динамического обновления станций (только в virtual env)
+## Запуск для разработки
+
+Запускайте каждый процесс в отдельном терминале.
+
+### Backend API
+
 ```bash
 cd backend
+source .venv/bin/activate       # Linux/macOS
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+API будет доступен по адресу <http://127.0.0.1:8000>, документация Swagger — по адресу <http://127.0.0.1:8000/docs>.
+
+### Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Интерфейс откроется по адресу <http://localhost:5173>. Vite автоматически проксирует запросы `/stations` и `/ws` на backend `http://127.0.0.1:8000`.
+
+### Celery
+
+Для фоновых задач запустите worker и beat. Если используется один процесс Celery:
+
+```bash
+cd backend
+source .venv/bin/activate
 celery -A app.core.celery_app.celery worker -B --loglevel=info -P solo
 ```
 
-## 2. API
-**Интерактивная документация:** [автосгененированная fastapi в формате swagger]
+В окружениях, где worker и beat запускаются отдельно:
 
-Доступна по адресу:
-
-`http://127.0.0.1:8080/docs`
-
-**Особенности:**
-
-- Полное описание всех эндпоинтов
-- Возможность тестирования запросов прямо в браузере
-
-### 2.1 GET-запросы
-1. GET /stations
-
-**Назначение:** Получение списка всех доступных станций с их основными характеристиками.
-
-**Пример запроса:**
 ```bash
-curl http://127.0.0.1:8080/stations
+celery -A app.core.celery_app.celery worker --loglevel=info -P solo
+celery -A app.core.celery_app.celery beat --loglevel=info
 ```
 
-**Пример ответа:**
-```json
-[
-  {
-    "id": 21,
-    "type_st": 1,
-    "battery_life": 100,
-    "latitude": 55.055092785700786,
-    "longitude": 82.97620465806989,
-    "PM_2_5": 0.52,
-    "PM_10": 0.16,
-    "overTLV": 0
-  },
-]
+### Быстрый запуск Windows
+
+Скрипт `start.ps1` пытается запустить Redis, службу PostgreSQL, backend, Celery worker, Celery beat и frontend в отдельных окнах:
+
+```powershell
+.\start.ps1
 ```
 
-2. GET /stations/{station_id}
+Скрипт ожидает виртуальное окружение `venv\Scripts\python.exe`. Если используется `.venv`, запускайте команды вручную либо измените путь `$venvBin` в скрипте.
 
-**Назначение:** Получение данных конкретной станции
+## REST API
 
-**Пример запроса:**
+Все основные REST-маршруты имеют префикс `/stations`.
+
+### Станции
+
+| Метод | Маршрут | Назначение |
+|---|---|---|
+| `GET` | `/stations` | Получить список станций |
+| `GET` | `/stations/{station_id}/` | Получить данные станции |
+| `POST` | `/stations/add?latitude=...&longitude=...&type_st=...` | Добавить устройство |
+| `POST` | `/stations/{station_id}/remove` | Удалить устройство |
+| `POST` | `/stations/set_count?count=...&moving_count=...` | Изменить количество станций |
+| `POST` | `/stations/reset` | Сбросить типы и батареи станций |
+| `POST` | `/stations/charge_battery?charge=100` | Зарядить батареи |
+
+### Загрязнение и сценарии
+
+| Метод | Маршрут | Назначение |
+|---|---|---|
+| `POST` | `/stations/{station_id}/pollute?pm25=...&pm10=...` | Установить загрязнение станции |
+| `POST` | `/stations/{station_id}/clear_pollution` | Убрать загрязнение станции |
+| `POST` | `/stations/clear_pollutions` | Убрать загрязнение всех станций |
+| `POST` | `/stations/fake_pollutions` | Увеличить искусственное загрязнение |
+| `POST` | `/stations/clear_fake_pollutions` | Сбросить искусственное загрязнение |
+| `GET` | `/stations/load_scenarios` | Получить прогноз нагрузки для сценариев |
+| `POST` | `/stations/transmit_all?enabled=true` | Включить или отключить передачу всеми станциями |
+
+### Настройки передачи и данные карты
+
+| Метод | Маршрут | Назначение |
+|---|---|---|
+| `GET` | `/stations/buffer` | Получить параметры буфера |
+| `POST` | `/stations/set_buffer?capacity_kb=...` | Изменить ёмкость буфера |
+| `POST` | `/stations/set_buffer_rate?rate_ratio=...` | Изменить скорость обработки буфера |
+| `GET` | `/stations/msg_weights` | Получить веса сообщений |
+| `POST` | `/stations/set_msg_weights` | Изменить веса сообщений |
+| `GET` | `/stations/water_mask` | Получить маску водоёмов |
+| `GET` | `/stations/roads` | Получить данные дорог |
+
+### Визуализация расписаний
+
+| Метод | Маршрут | Назначение |
+|---|---|---|
+| `GET` | `/stations/plot/cluster` | Данные кластерного распределения |
+| `GET` | `/stations/plot/timezone` | Данные распределения по временным зонам |
+| `GET` | `/stations/plot/{option}` | Графическое изображение расписания |
+| `POST` | `/stations/plot/cluster_heads` | Построить кластерные головы |
+
+Полный список параметров и интерактивные примеры доступны в Swagger: <http://127.0.0.1:8000/docs>.
+
+## WebSocket метрик
+
+Frontend подключается к:
+
+```text
+ws://localhost:5173/ws/metrics
+```
+
+В dev-режиме Vite проксирует соединение на backend:
+
+```text
+ws://127.0.0.1:8000/ws/metrics
+```
+
+Соединение отправляет JSON с текущими метриками примерно раз в секунду: количеством сообщений, весом трафика, заполнением буфера, потерями и средним зарядом движущихся станций.
+
+## Проверка проекта
+
+Frontend:
+
 ```bash
-curl http://127.0.0.1:8080/stations/1
+cd frontend
+npm run lint       # ESLint
+npm run build      # production-сборка
+npm run preview    # локальный просмотр production-сборки
 ```
 
-**Пример ответа:**
-```json
-{
-  "id": 1,
-  "type_st": 0,
-  "battery_life": 63,
-  "latitude": 55.112268039115186,
-  "longitude": 83.1092471235398,
-  "PM_2_5": 0.65,
-  "PM_10": 5.31,
-  "overTLV": 0
-}
-```
+Backend:
 
-3. GET staions/plot/cluster
-
-**Назначение:** Получение полигонов деление станций для формирования расписания по кластерам
-
-**Пример запроса:**
 ```bash
-curl http://127.0.0.1:8000/stations/plot/cluster?capacity=10&mode=cluster_head
+cd backend
+.venv/bin/python -m compileall -q app
+.venv/bin/python -c "import app.main; print('backend import: ok')"
 ```
 
-**Пример ответа:**
-```json
-{
-  "polygons": [
-    {
-      "cluster_id": 0,
-      "points": [
-        [
-          55.159949225596854,
-          83.13900317171534
-        ],
-        [
-          55.15944922559686,
-          83.13850317171534
-        ],
-```
+## Production-сборка frontend
 
-4. GET stations/plot/timezone
-
-**Назначение:** Получение полигонов деление станций для формирования расписания по географическому положению
-
-**Пример запроса:**
 ```bash
-curl http://127.0.0.1:8000/stations/plot/timezone?capacity=10
+cd frontend
+npm run build
 ```
 
-**Пример ответа:**
-```json
-{
-  "zones": [
-    {
-      "x_min": 54.80794922559686,
-      "x_max": 54.83140223112628,
-      "y_min": 82.86250317171535,
-      "y_max": 83.22164222008364
-    },
-    {
-      "x_min": 54.83140223112628,
-      "x_max": 54.8548552366557,
-      "y_min": 82.86250317171535,
-      "y_max": 83.22164222008364
-    },
-```
-5. GET stations/plot/{option}
+Готовые файлы будут созданы в `frontend/dist`. Для публикации в production нужен веб-сервер, который отдаёт эти файлы и проксирует `/stations` и `/ws` к FastAPI.
 
-**Назначение:** Получение графика деления станций на группы 
-
-**Пример запроса:**
-```bash
-curl http://127.0.0.1:8000/stations/plot/1
-```
-
-**Пример ответа:**
-Изображение с графиком и легендой
-
-### 2.2 POST-запросы
-1. POST stations/reset
-**Назначение:** Сброс станций к исходному типу (используется при изменении типа расписания)
-
-**Пример запроса:**
-```bash
-curl http://127.0.0.1:8000/stations/reset
-```
-
-2. POST stations/fake_pollutions
-
-**Назначение:** Создать искуственное загрязнение
-
-**Пример запроса:**
-```bash
-curl http://127.0.0.1:8000/stations/fake_pollutions
-```
-
-3. POST stations/clear_fake_pollutions
-
-**Назначение:** Убрать искуственное загрязнение
-
-**Пример запроса:**
-```bash
-curl http://127.0.0.1:8000/stations/clear_fake_pollutions
-```
-
-### 2.3 Коды ответов сервера
-
-| Код | Статус               | Описание                  | Типичные сценарии                                                            |
-|-----|----------------------|---------------------------|------------------------------------------------------------------------------|
-| 200 | OK                   | Успешный запрос           | Данные успешно получены и возвращены в теле ответа                           |
-| 204 | No Content           | Нет содержимого           | Запрос выполнен успешно, но данных за указанный период не найдено            |
-| 400 | Bad Request          | Неверный запрос           | Ошибка валидации параметров (неверный формат времени, некорректные значения) |
-| 404 | Not Found            | Не найдено                | Запрошенная станция или канал не существует                                  |
-| 500 | Internal Server Error| Внутренняя ошибка сервера | Непредвиденная ошибка при обработке запроса                                  |
-| 503 | Service Unavailable  | Сервис недоступен         | Нет доступа к хранилищу данных или временные проблемы с подключением         |
-
+## Примечания
 ## 3. Интеграция с платформой СИГМА
 
 Дашборд выступает **источником событий**: отправляет в СИГМУ изменения
@@ -320,3 +323,10 @@ cd backend
 Smoke-тест поднимает локальный мок (Keycloak + Gateway), проверяет
 токен, регистрацию источника, отправку, чтение, PATCH, сборку сообщений,
 правила уровней и детектор переходов. БД, Redis и доступ к СИГМЕ не нужны.
+
+## Дополнительные примечания
+
+- Frontend использует относительные URL API, поэтому отдельный `.env` для frontend в текущей конфигурации не требуется.
+- Backend запускается на порту `8000`, frontend — на порту `5173`.
+- Станции с нулевым зарядом не передают данные и не отображаются в активных расчётах.
+- Файл `backend/.env` содержит локальные секреты и не должен публиковаться в Git.

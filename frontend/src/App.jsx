@@ -63,6 +63,7 @@ function haversineKm(a, b) {
 export default function App() {
   const stations = useStations();
   const [co2Sensors, setCo2Sensors] = useState([]);
+  const [testRun, setTestRun] = useState({ loading: false, result: null, error: "" });
   const mappedCo2Sensors = useMemo(() => {
     const anchorIds = [105, 106];
     const unlocated = co2Sensors
@@ -89,6 +90,22 @@ export default function App() {
       };
     });
   }, [co2Sensors, stations]);
+
+  const runContractTests = useCallback(async () => {
+    setTestRun({ loading: true, result: null, error: "" });
+    try {
+      const response = await fetch("/tests/run", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+      setTestRun({ loading: false, result, error: "" });
+    } catch (error) {
+      setTestRun({
+        loading: false,
+        result: null,
+        error: error.message || "Не удалось выполнить тесты",
+      });
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -1129,6 +1146,9 @@ export default function App() {
           <section className="card">
             <h2>Карта станций</h2>
             <div className="row">
+              <button onClick={runContractTests} disabled={testRun.loading}>
+                {testRun.loading ? "Выполняются…" : "Запустить тесты"}
+              </button>
               <button
                 onClick={handleToggleClusterHeads}
                 className={showClusterHeads ? "active" : ""}
@@ -1158,6 +1178,35 @@ export default function App() {
                 {showHeatmap ? "Скрыть тепловую карту" : "Тепловая карта"}
               </button>
             </div>
+
+            {(testRun.loading || testRun.result || testRun.error) && (
+              <section
+                className={`test-results${testRun.error || testRun.result?.status === "failed" ? " test-results-failed" : ""}`}
+                aria-live="polite"
+                aria-busy={testRun.loading}
+              >
+                <strong>
+                  {testRun.loading
+                    ? "Выполняю проверки контракта данных…"
+                    : testRun.error
+                    ? "Не удалось запустить тесты"
+                    : testRun.result.status === "passed"
+                    ? `Тесты пройдены: ${testRun.result.passed} из ${testRun.result.total}`
+                    : `Есть ошибки: ${testRun.result.failed + testRun.result.errors} из ${testRun.result.total}`}
+                </strong>
+                {testRun.error && <div>{testRun.error}</div>}
+                {testRun.result?.tests?.map((test) => (
+                  <div className="test-result-passed" key={test}>
+                    ✓ {test}
+                  </div>
+                ))}
+                {testRun.result?.issues?.map((issue) => (
+                  <div className="test-result-issue" key={issue.test}>
+                    {issue.test}: {issue.message.split("\\n").at(-2) || issue.message}
+                  </div>
+                ))}
+              </section>
+            )}
 
             <div id="map">
               <MapView

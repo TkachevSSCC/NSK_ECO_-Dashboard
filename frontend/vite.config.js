@@ -9,6 +9,7 @@ export default defineConfig({
     // без прокси запросы уходят на сам dev-сервер и возвращают index.html
     proxy: {
       "/stations": "http://127.0.0.1:8000",
+      "/tests": "http://127.0.0.1:8000",
       "/ws": { target: "ws://127.0.0.1:8000", ws: true },
       "/co2": {
         target: "https://eco.curxtor.ru",

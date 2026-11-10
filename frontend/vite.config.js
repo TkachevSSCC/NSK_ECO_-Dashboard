@@ -10,6 +10,11 @@ export default defineConfig({
     proxy: {
       "/stations": "http://127.0.0.1:8000",
       "/ws": { target: "ws://127.0.0.1:8000", ws: true },
+      "/co2": {
+        target: "https://eco.curxtor.ru",
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
 })

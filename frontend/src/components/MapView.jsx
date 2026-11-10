@@ -8,6 +8,7 @@ import {
   Circle,
   CircleMarker,
   ImageOverlay,
+  Popup,
   Tooltip,
   useMap,
   useMapEvents,
@@ -86,8 +87,51 @@ function MapClickCatcher({ onAddDevice }) {
   return null;
 }
 
+function Co2SensorMarker({ sensor }) {
+  const { meta = {} } = sensor;
+  if (meta.latitude == null || meta.longitude == null || meta.latitude === "" || meta.longitude === "") {
+    return null;
+  }
+  const latitude = Number(meta.latitude);
+  const longitude = Number(meta.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const color = sensor.online ? "#0891b2" : "#64748b";
+  const co2 = Number.isFinite(Number(sensor.co2)) ? `${sensor.co2} ppm` : "нет данных";
+
+  return (
+    <CircleMarker
+      center={[latitude, longitude]}
+      radius={10}
+      pathOptions={{
+        color: "#ffffff",
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 1,
+      }}
+    >
+      <Tooltip permanent direction="top" offset={[0, -8]}>
+        CO₂ · {co2}
+      </Tooltip>
+      <Popup>
+        <strong>{meta.product || "CO₂-датчик"}</strong>
+        <br />
+        {meta.placement && <>{meta.placement} · координаты устройства<br /></>}
+        CO₂: {co2}
+        <br />
+        Температура: {sensor.temp == null ? "—" : `${sensor.temp} °C`}
+        <br />
+        Статус: {sensor.online ? "онлайн" : "нет связи"}
+        <br />
+        Координаты: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+      </Popup>
+    </CircleMarker>
+  );
+}
+
 export default function MapView({
   stations,
+  co2Sensors = [],
   zones,
   showZones,
   clusters,
@@ -139,6 +183,10 @@ export default function MapView({
           highlighted={highlighted.has(station.id)}
           onRemoveDevice={onRemoveDevice}
         />
+      ))}
+
+      {co2Sensors.filter((sensor) => sensor.online).map((sensor) => (
+        <Co2SensorMarker key={sensor.id} sensor={sensor} />
       ))}
 
       {installSites.map((site) => (

@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
@@ -61,6 +62,56 @@ function haversineKm(a, b) {
 
 export default function App() {
   const stations = useStations();
+  const [co2Sensors, setCo2Sensors] = useState([]);
+  const mappedCo2Sensors = useMemo(() => {
+    const anchorIds = [105, 106];
+    const unlocated = co2Sensors
+      .filter((sensor) => sensor.online && sensor.meta?.remote)
+      .filter((sensor) => sensor.meta.latitude == null || sensor.meta.longitude == null)
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    return co2Sensors.map((sensor) => {
+      if (sensor.meta?.latitude != null && sensor.meta?.longitude != null) {
+        return sensor;
+      }
+      const index = unlocated.findIndex((item) => item.id === sensor.id);
+      if (index < 0 || index >= anchorIds.length) return sensor;
+      const station = stations.find((item) => item.id === anchorIds[index]);
+      if (!station) return sensor;
+      return {
+        ...sensor,
+        meta: {
+          ...sensor.meta,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          placement: `ПНЗ №${station.id}`,
+        },
+      };
+    });
+  }, [co2Sensors, stations]);
+
+  useEffect(() => {
+    let active = true;
+    const loadCo2Sensors = async () => {
+      try {
+        const response = await fetch("/co2/api/state", { cache: "no-store" });
+        if (!response.ok) return;
+        const snapshot = await response.json();
+        if (active && Array.isArray(snapshot.sensors)) {
+          setCo2Sensors(snapshot.sensors);
+        }
+      } catch {
+        // The dashboard remains usable when the CO2 service is unavailable.
+      }
+    };
+
+    loadCo2Sensors();
+    const timer = setInterval(loadCo2Sensors, 10000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   // id устройств с ненулевым зарядом: разряженные не передают,
   // поэтому не показываются ни в списках, ни в составе зон/кластеров
@@ -1111,6 +1162,7 @@ export default function App() {
             <div id="map">
               <MapView
                 stations={stations}
+                co2Sensors={mappedCo2Sensors}
                 zones={zones}
                 showZones={showZones}
                 clusters={clusters}
@@ -1161,6 +1213,10 @@ export default function App() {
               <span className="key">
                 <span className="dot" style={{ background: "#ef4444" }} />
                 ≥ 150 — опасное
+              </span>
+              <span className="key">
+                <span className="dot" style={{ background: "#0891b2" }} />
+                CO₂-датчик MONTORCO
               </span>
               <div className="legend-note">
                 Цвет маркера — по максимальному из PM2.5 / PM10

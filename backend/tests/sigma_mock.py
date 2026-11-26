@@ -142,7 +142,6 @@ async def get_source(source_id: str, request: Request):
 
 @app.post("/api-gateway/events/sources/{source_id}/events/")
 async def send_event(source_id: str, request: Request):
-    _auth(request)
     with _lock:
         source = state["sources"].get(source_id)
     if source is None:

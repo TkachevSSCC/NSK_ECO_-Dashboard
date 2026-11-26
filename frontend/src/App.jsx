@@ -65,9 +65,18 @@ export default function App() {
   const [co2Sensors, setCo2Sensors] = useState([]);
   const [testRun, setTestRun] = useState({ loading: false, result: null, error: "" });
   const mappedCo2Sensors = useMemo(() => {
-    const anchorIds = [105, 106];
+    const preferredAnchorIds = [105, 106];
+    const activeStations = stations
+      .filter(isLive)
+      .sort((a, b) => a.id - b.id);
+    const anchors = [
+      ...preferredAnchorIds
+        .map((id) => activeStations.find((station) => station.id === id))
+        .filter(Boolean),
+      ...activeStations.filter((station) => !preferredAnchorIds.includes(station.id)),
+    ];
     const unlocated = co2Sensors
-      .filter((sensor) => sensor.online && sensor.meta?.remote)
+      .filter((sensor) => sensor.online)
       .filter((sensor) => sensor.meta.latitude == null || sensor.meta.longitude == null)
       .sort((a, b) => a.id.localeCompare(b.id));
 
@@ -76,16 +85,21 @@ export default function App() {
         return sensor;
       }
       const index = unlocated.findIndex((item) => item.id === sensor.id);
-      if (index < 0 || index >= anchorIds.length) return sensor;
-      const station = stations.find((item) => item.id === anchorIds[index]);
-      if (!station) return sensor;
+      if (index < 0 || anchors.length === 0) return sensor;
+
+      const station = anchors[index % anchors.length];
+      const overflow = Math.floor(index / anchors.length);
+      const angle = overflow * 2.399963229728653;
+      const radius = overflow === 0 ? 0 : 0.00035 * Math.ceil(Math.sqrt(overflow));
+      const latitude = Number(station.latitude) + radius * Math.sin(angle);
+      const longitude = Number(station.longitude) + radius * Math.cos(angle);
       return {
         ...sensor,
         meta: {
           ...sensor.meta,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          placement: `ПНЗ №${station.id}`,
+          latitude,
+          longitude,
+          placement: `Примерно у ПНЗ №${station.id}`,
         },
       };
     });

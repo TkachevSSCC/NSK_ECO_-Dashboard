@@ -98,6 +98,11 @@ function Co2SensorMarker({ sensor }) {
 
   const color = sensor.online ? "#0891b2" : "#64748b";
   const co2 = Number.isFinite(Number(sensor.co2)) ? `${sensor.co2} ppm` : "нет данных";
+  const sensorName =
+    meta.name ||
+    (sensor.id?.startsWith("remote:")
+      ? `CO₂ датчик ${sensor.id.slice(-6).toUpperCase()}`
+      : meta.product || "CO₂-датчик");
 
   return (
     <CircleMarker
@@ -111,19 +116,19 @@ function Co2SensorMarker({ sensor }) {
       }}
     >
       <Tooltip permanent direction="top" offset={[0, -8]}>
-        CO₂ · {co2}
+        {sensorName} · {co2}
       </Tooltip>
       <Popup>
-        <strong>{meta.product || "CO₂-датчик"}</strong>
+        <strong>{sensorName}</strong>
         <br />
-        {meta.placement && <>{meta.placement} · координаты устройства<br /></>}
+        {meta.placement && <>{meta.placement}<br /></>}
         CO₂: {co2}
         <br />
         Температура: {sensor.temp == null ? "—" : `${sensor.temp} °C`}
         <br />
         Статус: {sensor.online ? "онлайн" : "нет связи"}
         <br />
-        Координаты: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+        {meta.placement ? "Примерные координаты" : "Координаты устройства"}: {latitude.toFixed(5)}, {longitude.toFixed(5)}
       </Popup>
     </CircleMarker>
   );

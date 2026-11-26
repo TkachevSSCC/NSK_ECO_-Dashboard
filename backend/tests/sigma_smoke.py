@@ -143,11 +143,13 @@ def test_protocol(base: str) -> None:
         isinstance(json.dumps(msg, allow_nan=False), str),
     )
 
+    # Дальше считаем только запросы, относящиеся к жизненному циклу события.
+    client.tokens.requests_count = 0
     result = client.send_event(msg)
     check("отправка события", result == "ok")
     check(
-        "токен запрошен один раз",
-        client.tokens.requests_count == 1,
+        "публичная отправка не запрашивает токен",
+        client.tokens.requests_count == 0,
         str(client.tokens.requests_count),
     )
 
@@ -160,22 +162,27 @@ def test_protocol(base: str) -> None:
         if (event.get("msg") or {}).get("payload", {}).get("correlation_id")
         == correlation_id
     ]
+    check(
+        "чтение использует кэшированный токен",
+        client.tokens.requests_count == 0,
+        str(client.tokens.requests_count),
+    )
     check("событие видно в processed=false", len(found) == 1, str(len(found)))
 
-    # Повторная отправка не должна запрашивать новый токен.
+    # Повторная отправка также не должна обращаться к Keycloak.
     client.send_event(schema.station_event("pollution.normalized", station))
     check(
-        "токен закэширован",
-        client.tokens.requests_count == 1,
+        "публичная повторная отправка без токена",
+        client.tokens.requests_count == 0,
         str(client.tokens.requests_count),
     )
 
-    # Принудительно протухаем токен: клиент должен обновить его и повторить.
+    # Истекший токен не влияет на публичную отправку события.
     requests.post(f"{base}/mock/expire-token", timeout=2)
     client.send_event(schema.station_event("pollution.exceeded", station))
     check(
-        "токен обновлён после 401",
-        client.tokens.requests_count == 2,
+        "отправка после истечения токена без обновления",
+        client.tokens.requests_count == 0,
         str(client.tokens.requests_count),
     )
 
@@ -183,6 +190,11 @@ def test_protocol(base: str) -> None:
         event_id = int(found[0]["id"])
         regulations = rules.regulations_for(38.4, 61.2)
         client.patch_event(event_id, level="WARN", regulations=regulations)
+        check(
+            "токен обновлён для API после 401",
+            client.tokens.requests_count == 1,
+            str(client.tokens.requests_count),
+        )
         processed = client.list_events(
             processed=True, level="WARN", order="desc", limit=100
         )

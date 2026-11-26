@@ -221,7 +221,13 @@ class SigmaClient:
 
     # -- события ----------------------------------------------------------
     def send_event(self, msg: dict) -> str:
-        """POST events/sources/<source_id>/events/. Успех — 201 и "ok"."""
+        """Публикует событие через публичный маршрут events.
+
+        Регистрация события не требует Bearer-токена приложения. Доступ к
+        публичному POST контролируется активностью источника и разрешенной
+        IP-подсетью, а повтор запроса после неопределенного результата может
+        создать дубликат.
+        """
         try:
             json.dumps(msg, allow_nan=False)
         except (TypeError, ValueError) as exc:
@@ -231,6 +237,8 @@ class SigmaClient:
             "POST",
             f"events/sources/{self.config.source_id}/events/",
             json_body={"msg": msg},
+            auth=False,
+            retry_auth=False,
         )
         if response.status_code not in (200, 201):
             raise SigmaApiError(
